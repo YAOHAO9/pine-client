@@ -4,7 +4,7 @@ import * as Event from 'events'
 import * as protobuf from 'protobufjs';
 const Type = protobuf.Type;
 
-const RequestType = Type.fromJSON('test', {
+const RequestType = Type.fromJSON('RequestType', {
     fields: {
         'Route': {
             rule: 'required',
@@ -23,6 +23,8 @@ const RequestType = Type.fromJSON('test', {
         }
     }
 });
+
+
 const requestMap = {}
 const MaxRequestID = 50000;
 
@@ -76,10 +78,11 @@ export default class Pine extends Event.EventEmitter {
         const msesage = RequestType.create({
             Route: route,
             RequestID: this.requestID,
-            Data: data
+            Data: new TextEncoder().encode(JSON.stringify(data))
         });
 
         const buffer = RequestType.encode(msesage).finish();
+
         this.ws.send(buffer, { binary: true })
 
         requestMap[this.requestID] = cb
