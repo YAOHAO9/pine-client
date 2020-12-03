@@ -1,7 +1,28 @@
 
 import * as WebSocket from 'ws'
 import * as Event from 'events'
+import * as protobuf from 'protobufjs';
+const Type = protobuf.Type;
 
+const RequestType = Type.fromJSON('test', {
+    fields: {
+        'Route': {
+            rule: 'required',
+            type: 'string',
+            id: 1
+        },
+        'RequestID': {
+            rule: 'required',
+            type: 'int32',
+            id: 2
+        },
+        'Data': {
+            rule: 'required',
+            type: 'bytes',
+            id: 3
+        }
+    }
+});
 const requestMap = {}
 const MaxRequestID = 50000;
 
@@ -52,11 +73,14 @@ export default class Pine extends Event.EventEmitter {
 
     public request(route: string, data: any, cb: (data: any) => any) {
 
-        this.ws.send(JSON.stringify({
+        const msesage = RequestType.create({
             Route: route,
             RequestID: this.requestID,
             Data: data
-        }))
+        });
+
+        const buffer = RequestType.encode(msesage).finish();
+        this.ws.send(buffer, { binary: true })
 
         requestMap[this.requestID] = cb
         this.requestID++
