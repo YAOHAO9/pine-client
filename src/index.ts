@@ -47,16 +47,22 @@ export default class Pine extends Event.EventEmitter {
                 reject = null
             }
 
-            this.ws.onmessage = (event: WebSocket.MessageEvent) => {
-                const result = JSON.parse(event.data.toString())
-                if (result.RequestID) {
+            // this.ws.onmessage = (event: WebSocket.MessageEvent) => {
+            //    console.info('event.data:', new Uint8Array(event.data as any))
+            // }
+            this.ws.addListener('message', (data: WebSocket.Data) => {
+                try {
+                    const result = JSON.parse(data.toString())
                     const cb = requestMap[result.RequestID]
                     delete requestMap[result.RequestID]
                     cb(result.Data)
-                } else {
+                } catch (e) {
+                    const message = RequestType.decode(data as Buffer)
+                    const result = message.toJSON()
+                    result.Data = JSON.stringify(new TextDecoder('utf-8').decode(((message as any).Data)))
                     this.emit(result.Route, result.Data)
                 }
-            }
+            })
 
             this.ws.onclose = (event: WebSocket.CloseEvent) => {
                 console.warn('连接被关闭', event.reason)
