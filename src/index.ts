@@ -91,5 +91,18 @@ export default class Pine extends Event.EventEmitter {
             this.requestID = 1
         }
     }
+
+    public notify(route: string, data: any) {
+
+        const msesage = RequestType.create({
+            Route: route,
+            RequestID: 0,
+            Data: new TextEncoder().encode(JSON.stringify(data))
+        });
+
+        const buffer = RequestType.encode(msesage).finish();
+
+        this.ws.send(buffer, { binary: true })
+    }
 }
 
