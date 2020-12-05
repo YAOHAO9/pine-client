@@ -12,7 +12,7 @@ const RequestType = Type.fromJSON('RequestType', {
             id: 1
         },
         'RequestID': {
-            rule: 'required',
+            rule: 'optional',
             type: 'int32',
             id: 2
         },
@@ -31,7 +31,7 @@ const MaxRequestID = 50000;
 export default class Pine extends Event.EventEmitter {
 
     private ws: WebSocket
-    private requestID = 1
+    private RequestID = 1
 
     public static init() {
         const pine = new Pine()
@@ -51,15 +51,20 @@ export default class Pine extends Event.EventEmitter {
             //    console.info('event.data:', new Uint8Array(event.data as any))
             // }
             this.ws.addListener('message', (data: WebSocket.Data) => {
-                try {
-                    const result = JSON.parse(data.toString())
+                const message = RequestType.decode(data as Buffer)
+                const result = message.toJSON()
+                result.Data = new TextDecoder('utf-8').decode(((message as any).Data))
+
+                if (result.RequestID) {
                     const cb = requestMap[result.RequestID]
-                    delete requestMap[result.RequestID]
-                    cb(result.Data)
-                } catch (e) {
-                    const message = RequestType.decode(data as Buffer)
-                    const result = message.toJSON()
-                    result.Data = JSON.stringify(new TextDecoder('utf-8').decode(((message as any).Data)))
+
+                    if (cb) {
+                        delete requestMap[result.RequestID]
+                        cb(result)
+                    } else {
+                        console.error('No callback response;', result)
+                    }
+                } else {
                     this.emit(result.Route, result.Data)
                 }
             })
@@ -83,7 +88,7 @@ export default class Pine extends Event.EventEmitter {
 
         const msesage = RequestType.create({
             Route: route,
-            RequestID: this.requestID,
+            RequestID: this.RequestID,
             Data: new TextEncoder().encode(JSON.stringify(data))
         });
 
@@ -91,10 +96,10 @@ export default class Pine extends Event.EventEmitter {
 
         this.ws.send(buffer, { binary: true })
 
-        requestMap[this.requestID] = cb
-        this.requestID++
-        if (this.requestID >= MaxRequestID) {
-            this.requestID = 1
+        requestMap[this.RequestID] = cb
+        this.RequestID++
+        if (this.RequestID >= MaxRequestID) {
+            this.RequestID = 1
         }
     }
 
