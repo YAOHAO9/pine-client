@@ -28,6 +28,8 @@ const RequestType = Type.fromJSON('RequestType', {
 const requestMap = {}
 const MaxRequestID = 50000;
 
+let protoMap: { [serverKind: string]: any } = {}
+
 export default class Pine extends Event.EventEmitter {
 
     private ws: WebSocket
@@ -35,9 +37,19 @@ export default class Pine extends Event.EventEmitter {
 
     public static init() {
         const pine = new Pine()
+
+        pine.on('connector.__send_err__', (data) => {
+            console.error('消息发送失败:' + JSON.stringify(data))
+        })
+
+        pine.on('connector.__protojson__', (data) => {
+            protoMap = data
+        })
+
         return pine
     }
 
+    // 建立连接
     public connect(wsUrl: string) {
 
         return new Promise((resolve, reject) => {
@@ -60,11 +72,12 @@ export default class Pine extends Event.EventEmitter {
 
                     if (cb) {
                         delete requestMap[result.RequestID]
-                        cb(result)
+                        cb(result.Data)
                     } else {
                         console.error('No callback response;', result)
                     }
                 } else {
+                    console.warn(JSON.stringify(result))
                     this.emit(result.Route, result.Data)
                 }
             })
@@ -84,6 +97,7 @@ export default class Pine extends Event.EventEmitter {
 
     }
 
+    // Request 请求
     public request(route: string, data: any, cb: (data: any) => any) {
 
         const msesage = RequestType.create({
@@ -103,6 +117,7 @@ export default class Pine extends Event.EventEmitter {
         }
     }
 
+    // Notify 无回复通知
     public notify(route: string, data: any) {
 
         const msesage = RequestType.create({
