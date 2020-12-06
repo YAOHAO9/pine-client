@@ -4,7 +4,7 @@ import * as Event from 'events'
 import * as protobuf from 'protobufjs';
 const Type = protobuf.Type;
 
-const RequestType = Type.fromJSON('RequestType', {
+const PineMessage = Type.fromJSON('PineMessage', {
     fields: {
         'Route': {
             rule: 'required',
@@ -28,7 +28,77 @@ const RequestType = Type.fromJSON('RequestType', {
 const requestMap = {}
 const MaxRequestID = 50000;
 
-let protoMap: { [serverKind: string]: any } = {}
+let protoMap: {
+    [serverKind: string]: {
+        client: any,
+        server: any
+    }
+} = {
+    connector: {
+        client: {
+            'nested': {
+                'connector': {
+                    'options': {
+                        'go_package': '../handlermessage'
+                    },
+                    'nested': {
+                        'handlerResp': {
+                            'fields': {
+                                'Code': {
+                                    'type': 'int32',
+                                    'id': 1
+                                },
+                                'Name': {
+                                    'type': 'string',
+                                    'id': 2
+                                },
+                                'Message': {
+                                    'type': 'string',
+                                    'id': 3
+                                }
+                            }
+                        },
+                        'onMsg': {
+                            'fields': {
+                                'Name': {
+                                    'type': 'string',
+                                    'id': 1
+                                },
+                                'Data': {
+                                    'type': 'string',
+                                    'id': 2
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        server: {
+            'nested': {
+                'connector': {
+                    'options': {
+                        'go_package': '../handlermessage'
+                    },
+                    'nested': {
+                        'handler': {
+                            'fields': {
+                                'Name': {
+                                    'type': 'string',
+                                    'id': 1
+                                },
+                                'Age': {
+                                    'type': 'int32',
+                                    'id': 2
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 export default class Pine extends Event.EventEmitter {
 
@@ -63,22 +133,54 @@ export default class Pine extends Event.EventEmitter {
             //    console.info('event.data:', new Uint8Array(event.data as any))
             // }
             this.ws.addListener('message', (data: WebSocket.Data) => {
-                const message = RequestType.decode(data as Buffer)
+                const message = PineMessage.decode(data as Buffer)
                 const result = message.toJSON()
-                result.Data = new TextDecoder('utf-8').decode(((message as any).Data))
+
+
+                const serverKind = result.Route.split('.')[0]
+                const protoDesc = protoMap[serverKind].client
 
                 if (result.RequestID) {
                     const cb = requestMap[result.RequestID]
 
                     if (cb) {
                         delete requestMap[result.RequestID]
-                        cb(result.Data)
+
+                        let RequestType
+                        try {
+                            RequestType = protobuf.Root.fromJSON(protoDesc).lookupType(result.Route + 'Resp')
+                        } catch (e) {
+                            // console.log(`${result.Route}'s proto message is not found.`)
+                        }
+
+                        if (RequestType) {
+                            const data = RequestType.decode((message as any).Data)
+                            cb(data)
+                        } else {
+                            const data = new TextDecoder('utf-8').decode(((message as any).Data))
+                            cb(JSON.parse(data))
+                        }
+
                     } else {
                         console.error('No callback response;', result)
                     }
                 } else {
-                    console.warn(JSON.stringify(result))
-                    this.emit(result.Route, result.Data)
+
+                    let RequestType
+                    try {
+                        RequestType = protobuf.Root.fromJSON(protoDesc).lookupType(result.Route)
+                    } catch (e) {
+                        // console.log(`${result.Route}'s proto message is not found.`)
+                    }
+
+                    let data
+                    if (RequestType) {
+                        data = RequestType.decode((message as any).Data)
+                    } else {
+                        data = new TextDecoder('utf-8').decode(((message as any).Data))
+                    }
+
+                    this.emit(result.Route, data)
                 }
             })
 
@@ -100,13 +202,30 @@ export default class Pine extends Event.EventEmitter {
     // Request 请求
     public request(route: string, data: any, cb: (data: any) => any) {
 
-        const msesage = RequestType.create({
+        const serverKind = route.split('.')[0]
+
+        const protoDesc = protoMap[serverKind].server
+        let RequestType
+        try {
+            RequestType = protobuf.Root.fromJSON(protoDesc).lookupType(route)
+        } catch (e) {
+            // console.log(`${route}'s proto message is not found.`)
+        }
+        // RequestType=null
+        let encodedData: Uint8Array;
+        if (RequestType) {
+            encodedData = RequestType.encode(data).finish()
+        } else {
+            encodedData = new TextEncoder().encode(JSON.stringify(data))
+        }
+
+        const msesage = PineMessage.create({
             Route: route,
             RequestID: this.RequestID,
-            Data: new TextEncoder().encode(JSON.stringify(data))
+            Data: encodedData
         });
 
-        const buffer = RequestType.encode(msesage).finish();
+        const buffer = PineMessage.encode(msesage).finish();
 
         this.ws.send(buffer, { binary: true })
 
@@ -120,15 +239,33 @@ export default class Pine extends Event.EventEmitter {
     // Notify 无回复通知
     public notify(route: string, data: any) {
 
-        const msesage = RequestType.create({
+        const serverKind = route.split('.')[0]
+
+        const protoDesc = protoMap[serverKind].server
+        let RequestType
+        try {
+            RequestType = protobuf.Root.fromJSON(protoDesc).lookupType(route)
+        } catch (e) {
+            // console.log(`${route}'s proto message is not found.`)
+        }
+        // RequestType=null
+        let encodedData: Uint8Array;
+        if (RequestType) {
+            encodedData = RequestType.encode(data).finish()
+        } else {
+            encodedData = new TextEncoder().encode(JSON.stringify(data))
+        }
+
+        const msesage = PineMessage.create({
             Route: route,
             RequestID: 0,
-            Data: new TextEncoder().encode(JSON.stringify(data))
+            Data: encodedData
         });
 
-        const buffer = RequestType.encode(msesage).finish();
+        const buffer = PineMessage.encode(msesage).finish();
 
         this.ws.send(buffer, { binary: true })
     }
+
 }
 
