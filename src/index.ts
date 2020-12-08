@@ -27,76 +27,10 @@ const PineMessage = Type.fromJSON('PineMessage', {
 
 const requestMap = {}
 const MaxRequestID = 50000;
-
-let protoMap: {
+export interface ProtoMap {
     [serverKind: string]: {
         client: any,
         server: any
-    }
-} = {
-    connector: {
-        client: {
-            'nested': {
-                'connector': {
-                    'options': {
-                        'go_package': '../handlermessage'
-                    },
-                    'nested': {
-                        'handlerResp': {
-                            'fields': {
-                                'Code': {
-                                    'type': 'int32',
-                                    'id': 1
-                                },
-                                'Name': {
-                                    'type': 'string',
-                                    'id': 2
-                                },
-                                'Message': {
-                                    'type': 'string',
-                                    'id': 3
-                                }
-                            }
-                        },
-                        'onMsg': {
-                            'fields': {
-                                'Name': {
-                                    'type': 'string',
-                                    'id': 1
-                                },
-                                'Data': {
-                                    'type': 'string',
-                                    'id': 2
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        server: {
-            'nested': {
-                'connector': {
-                    'options': {
-                        'go_package': '../handlermessage'
-                    },
-                    'nested': {
-                        'handler': {
-                            'fields': {
-                                'Name': {
-                                    'type': 'string',
-                                    'id': 1
-                                },
-                                'Age': {
-                                    'type': 'int32',
-                                    'id': 2
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -104,6 +38,8 @@ export default class Pine extends Event.EventEmitter {
 
     private ws: WebSocket
     private RequestID = 1
+
+    public static ProtoMap: ProtoMap = {}
 
     public static init() {
         const pine = new Pine()
@@ -113,7 +49,7 @@ export default class Pine extends Event.EventEmitter {
         })
 
         pine.on('connector.__protojson__', (data) => {
-            protoMap = data
+            Pine.ProtoMap = data
         })
 
         return pine
@@ -138,8 +74,7 @@ export default class Pine extends Event.EventEmitter {
 
 
                 const serverKind = result.Route.split('.')[0]
-                const protoDesc = protoMap[serverKind].client
-
+                const protoDesc = Pine.ProtoMap[serverKind] ? Pine.ProtoMap[serverKind].client : {}
                 if (result.RequestID) {
                     const cb = requestMap[result.RequestID]
 
@@ -204,7 +139,7 @@ export default class Pine extends Event.EventEmitter {
 
         const serverKind = route.split('.')[0]
 
-        const protoDesc = protoMap[serverKind].server
+        const protoDesc = Pine.ProtoMap[serverKind] ? Pine.ProtoMap[serverKind].server : {}
         let RequestType
         try {
             RequestType = protobuf.Root.fromJSON(protoDesc).lookupType(route)
@@ -241,7 +176,7 @@ export default class Pine extends Event.EventEmitter {
 
         const serverKind = route.split('.')[0]
 
-        const protoDesc = protoMap[serverKind].server
+        const protoDesc = Pine.ProtoMap[serverKind] ? Pine.ProtoMap[serverKind].server : {}
         let RequestType
         try {
             RequestType = protobuf.Root.fromJSON(protoDesc).lookupType(route)
@@ -265,6 +200,20 @@ export default class Pine extends Event.EventEmitter {
         const buffer = PineMessage.encode(msesage).finish();
 
         this.ws.send(buffer, { binary: true })
+    }
+
+    public fetchProto(serverKind: string) {
+        return new Promise(resolve => {
+            this.request(`${serverKind}.FetchProto__`, 'ab23', (data) => {
+                Object.keys(data).forEach(key => {
+                    data[key] = JSON.parse(data[key])
+                })
+
+                Pine.ProtoMap[serverKind] = data
+                resolve(data)
+            })
+        })
+
     }
 
 }
