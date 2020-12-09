@@ -2,7 +2,17 @@
 import * as WebSocket from 'ws'
 import * as Event from 'events'
 import * as protobuf from 'protobufjs';
+
 const Type = protobuf.Type;
+const Root = protobuf.Root;
+
+(protobuf as any).loadFromString = (name, protoStr) => {
+    const fetchFunc = Root.prototype.fetch;
+    Root.prototype.fetch = (_, cb) => cb(null, protoStr);
+    const root = new Root().load(name);
+    Root.prototype.fetch = fetchFunc;
+    return root;
+};
 
 const PineMessage = Type.fromJSON('PineMessage', {
     fields: {
@@ -29,8 +39,8 @@ const requestMap = {}
 const MaxRequestID = 50000;
 export interface ProtoMap {
     [serverKind: string]: {
-        client: any,
-        server: any
+        client: protobuf.Root,
+        server: protobuf.Root
     }
 }
 
@@ -74,7 +84,8 @@ export default class Pine extends Event.EventEmitter {
 
 
                 const serverKind = result.Route.split('.')[0]
-                const protoDesc = Pine.ProtoMap[serverKind] ? Pine.ProtoMap[serverKind].client : {}
+                const clientProtoRoot = Pine.ProtoMap[serverKind] ? Pine.ProtoMap[serverKind].client : undefined
+
                 if (result.RequestID) {
                     const cb = requestMap[result.RequestID]
 
@@ -83,9 +94,9 @@ export default class Pine extends Event.EventEmitter {
 
                         let RequestType
                         try {
-                            RequestType = protobuf.Root.fromJSON(protoDesc).lookupType(result.Route + 'Resp')
+                            RequestType = clientProtoRoot.lookupType(result.Route + 'Resp')
                         } catch (e) {
-                            // console.log(`${result.Route}'s proto message is not found.`)
+                            // console.log(`${result.Route}'s proto message is not found.`, e)
                         }
 
                         if (RequestType) {
@@ -103,7 +114,7 @@ export default class Pine extends Event.EventEmitter {
 
                     let RequestType
                     try {
-                        RequestType = protobuf.Root.fromJSON(protoDesc).lookupType(result.Route)
+                        RequestType = clientProtoRoot.lookupType(result.Route)
                     } catch (e) {
                         // console.log(`${result.Route}'s proto message is not found.`)
                     }
@@ -139,10 +150,10 @@ export default class Pine extends Event.EventEmitter {
 
         const serverKind = route.split('.')[0]
 
-        const protoDesc = Pine.ProtoMap[serverKind] ? Pine.ProtoMap[serverKind].server : {}
+        const serverProtoRoot = Pine.ProtoMap[serverKind] ? Pine.ProtoMap[serverKind].server : undefined
         let RequestType
         try {
-            RequestType = protobuf.Root.fromJSON(protoDesc).lookupType(route)
+            RequestType = serverProtoRoot.lookupType(route)
         } catch (e) {
             // console.log(`${route}'s proto message is not found.`)
         }
@@ -176,10 +187,10 @@ export default class Pine extends Event.EventEmitter {
 
         const serverKind = route.split('.')[0]
 
-        const protoDesc = Pine.ProtoMap[serverKind] ? Pine.ProtoMap[serverKind].server : {}
+        const serverProtoRoot = Pine.ProtoMap[serverKind] ? Pine.ProtoMap[serverKind].server : undefined
         let RequestType
         try {
-            RequestType = protobuf.Root.fromJSON(protoDesc).lookupType(route)
+            RequestType = serverProtoRoot.lookupType(route)
         } catch (e) {
             // console.log(`${route}'s proto message is not found.`)
         }
@@ -204,12 +215,22 @@ export default class Pine extends Event.EventEmitter {
 
     public fetchProto(serverKind: string) {
         return new Promise(resolve => {
-            this.request(`${serverKind}.FetchProto__`, 'ab23', (data) => {
-                Object.keys(data).forEach(key => {
-                    data[key] = JSON.parse(data[key])
-                })
+            this.request(`${serverKind}.FetchProto__`, '', async (data) => {
 
-                Pine.ProtoMap[serverKind] = data
+                let clientProtoRoot
+                if (data.client) {
+                    clientProtoRoot = await (protobuf as any).loadFromString(serverKind, data.client)
+                }
+                let serverProtoRoot
+                if (data.server) {
+                    serverProtoRoot = await (protobuf as any).loadFromString(serverKind, data.server)
+                }
+
+                Pine.ProtoMap[serverKind] = {
+                    client: clientProtoRoot,
+                    server: serverProtoRoot
+                }
+
                 resolve(data)
             })
         })
