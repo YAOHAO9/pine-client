@@ -2,7 +2,7 @@
 import * as WebSocket from 'ws'
 import * as Event from 'events'
 import * as protobuf from 'protobufjs';
-
+import { message } from './pine_message/compiled'
 
 interface HandlerMap {
     handlerToCode: { [handler: string]: number },
@@ -23,9 +23,8 @@ export interface ProtoMap {
     }
 }
 
-const Type = protobuf.Type;
+const PineMessage = message.PineMessage
 const Root = protobuf.Root;
-
 (protobuf as any).loadFromString = (name, protoStr) => {
     const fetchFunc = Root.prototype.fetch;
     Root.prototype.fetch = (_, cb) => cb(null, protoStr);
@@ -34,25 +33,6 @@ const Root = protobuf.Root;
     return root;
 };
 
-const PineMessage = Type.fromJSON('PineMessage', {
-    fields: {
-        'Route': {
-            rule: 'required',
-            type: 'string',
-            id: 1
-        },
-        'RequestID': {
-            rule: 'optional',
-            type: 'int32',
-            id: 2
-        },
-        'Data': {
-            rule: 'required',
-            type: 'bytes',
-            id: 3
-        }
-    }
-});
 
 let ServerDist: {
     kindToCode: { [serverKind: string]: number },
@@ -107,8 +87,14 @@ export default class Pine extends Event.EventEmitter {
                 const routeBytes = new TextEncoder().encode(result.Route)
                 if (routeBytes.length === 2) {
                     const serverKind = ServerDist.codeToKind[routeBytes[0]]
-                    const handler = Pine.ProtoMap[serverKind].handlers.codeToHandler[routeBytes[1]]
-                    result.Route = `${serverKind}.${handler}`
+                    if (result.RequestID) {
+                        const handler = Pine.ProtoMap[serverKind].handlers.codeToHandler[routeBytes[1]]
+                        result.Route = `${serverKind}.${handler}`
+                    } else {
+                        const event = Pine.ProtoMap[serverKind].events.codeToEvent[routeBytes[1]]
+                        result.Route = `${serverKind}.${event}`
+                    }
+
                 }
 
                 const serverKind = result.Route.split('.')[0]
