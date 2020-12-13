@@ -54,6 +54,10 @@ const PineMessage = Type.fromJSON('PineMessage', {
     }
 });
 
+let ServerDist: {
+    kindToCode: { [serverKind: string]: number },
+    codeToKind: { [serverCode: number]: string }
+}
 
 const requestMap = {}
 const MaxRequestID = 50000;
@@ -78,7 +82,7 @@ export default class Pine extends Event.EventEmitter {
         })
 
         pine.on('connector.__serverdict__', (data) => {
-            console.warn('__serverdict__', data)
+            ServerDist = data
         })
         return pine
     }
@@ -100,6 +104,12 @@ export default class Pine extends Event.EventEmitter {
                 const message = PineMessage.decode(data as Buffer)
                 const result = message.toJSON()
 
+                const routeBytes = new TextEncoder().encode(result.Route)
+                if (routeBytes.length === 2) {
+                    const serverKind = ServerDist.codeToKind[routeBytes[0]]
+                    const handler = Pine.ProtoMap[serverKind].handlers.codeToHandler[routeBytes[1]]
+                    result.Route = `${serverKind}.${handler}`
+                }
 
                 const serverKind = result.Route.split('.')[0]
                 const clientProtoRoot = Pine.ProtoMap[serverKind] ? Pine.ProtoMap[serverKind].client : undefined
@@ -109,6 +119,7 @@ export default class Pine extends Event.EventEmitter {
 
                     if (cb) {
                         delete requestMap[result.RequestID]
+
 
                         let RequestType
                         try {
@@ -122,6 +133,7 @@ export default class Pine extends Event.EventEmitter {
                             cb(data)
                         } else {
                             const data = new TextDecoder('utf-8').decode(((message as any).Data))
+                            console.warn(data)
                             cb(JSON.parse(data))
                         }
 
@@ -167,7 +179,7 @@ export default class Pine extends Event.EventEmitter {
     // Request 请求
     public request(route: string, data: any, cb: (data: any) => any) {
 
-        const serverKind = route.split('.')[0]
+        const [serverKind, handler] = route.split('.')
 
         const serverProtoRoot = Pine.ProtoMap[serverKind] ? Pine.ProtoMap[serverKind].server : undefined
         let RequestType
@@ -182,6 +194,16 @@ export default class Pine extends Event.EventEmitter {
             encodedData = RequestType.encode(data).finish()
         } else {
             encodedData = new TextEncoder().encode(JSON.stringify(data))
+        }
+
+        try {
+            const serverKindCode = ServerDist.kindToCode[serverKind]
+            const handlerCode = Pine.ProtoMap[serverKind].handlers.handlerToCode[handler]
+            if (serverKindCode && handlerCode) {
+                route = new TextDecoder().decode(new Uint8Array([serverKindCode, handlerCode]))
+            }
+        } catch (e) {
+            //
         }
 
         const msesage = PineMessage.create({
@@ -234,7 +256,7 @@ export default class Pine extends Event.EventEmitter {
 
     public fetchProto(serverKind: string) {
         return new Promise(resolve => {
-            this.request(`${serverKind}.FetchProto__`, '', async (data) => {
+            this.request(`${serverKind}.__FetchProto__`, '', async (data) => {
 
                 let clientProtoRoot
                 if (data.client) {
