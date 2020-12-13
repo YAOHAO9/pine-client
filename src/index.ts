@@ -3,6 +3,26 @@ import * as WebSocket from 'ws'
 import * as Event from 'events'
 import * as protobuf from 'protobufjs';
 
+
+interface HandlerMap {
+    handlerToCode: { [handler: string]: number },
+    codeToHandler: { [code: number]: string },
+}
+
+interface EventMap {
+    eventToCode: { [event: string]: number },
+    codeToEvent: { [code: number]: string },
+}
+
+export interface ProtoMap {
+    [serverKind: string]: {
+        client: protobuf.Root,
+        server: protobuf.Root,
+        handlers: HandlerMap
+        events: EventMap
+    }
+}
+
 const Type = protobuf.Type;
 const Root = protobuf.Root;
 
@@ -37,12 +57,7 @@ const PineMessage = Type.fromJSON('PineMessage', {
 
 const requestMap = {}
 const MaxRequestID = 50000;
-export interface ProtoMap {
-    [serverKind: string]: {
-        client: protobuf.Root,
-        server: protobuf.Root
-    }
-}
+
 
 export default class Pine extends Event.EventEmitter {
 
@@ -62,6 +77,9 @@ export default class Pine extends Event.EventEmitter {
             Pine.ProtoMap = data
         })
 
+        pine.on('connector.__serverdict__', (data) => {
+            console.warn('__serverdict__', data)
+        })
         return pine
     }
 
@@ -124,6 +142,7 @@ export default class Pine extends Event.EventEmitter {
                         data = RequestType.decode((message as any).Data)
                     } else {
                         data = new TextDecoder('utf-8').decode(((message as any).Data))
+                        data = JSON.parse(data)
                     }
 
                     this.emit(result.Route, data)
@@ -226,9 +245,31 @@ export default class Pine extends Event.EventEmitter {
                     serverProtoRoot = await (protobuf as any).loadFromString(serverKind, data.server)
                 }
 
+
+                const handlers: HandlerMap = { handlerToCode: {}, codeToHandler: {} }
+                if (data.handlers && data.handlers instanceof Array) {
+                    data.handlers.forEach((handler, index) => {
+                        const code = index + 1
+                        handlers.handlerToCode[handler] = code
+                        handlers.codeToHandler[code] = handler
+                    })
+                }
+
+
+                const events: EventMap = { eventToCode: {}, codeToEvent: {} }
+                if (data.events && data.events instanceof Array) {
+                    data.events.forEach((event, index) => {
+                        const code = index + 1
+                        events.eventToCode[event] = code
+                        events.codeToEvent[code] = event
+                    })
+                }
+
                 Pine.ProtoMap[serverKind] = {
                     client: clientProtoRoot,
-                    server: serverProtoRoot
+                    server: serverProtoRoot,
+                    handlers,
+                    events
                 }
 
                 resolve(data)
