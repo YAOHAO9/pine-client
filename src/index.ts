@@ -119,7 +119,6 @@ export default class Pine extends Event.EventEmitter {
                             cb(data)
                         } else {
                             const data = new TextDecoder('utf-8').decode(((message as any).Data))
-                            console.warn(data)
                             cb(JSON.parse(data))
                         }
 
