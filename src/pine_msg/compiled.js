@@ -9,7 +9,7 @@ var $Reader = $protobuf.Reader, $Writer = $protobuf.Writer, $util = $protobuf.ut
 // Exported root namespace
 var $root = $protobuf.roots["default"] || ($protobuf.roots["default"] = {});
 
-$root.message = (function() {
+$root.message = (function () {
 
     /**
      * Namespace message.
@@ -18,26 +18,26 @@ $root.message = (function() {
      */
     var message = {};
 
-    message.PineMessage = (function() {
+    message.PineMsg = (function () {
 
         /**
-         * Properties of a PineMessage.
+         * Properties of a PineMsg.
          * @memberof message
-         * @interface IPineMessage
-         * @property {string|null} [Route] PineMessage Route
-         * @property {number|null} [RequestID] PineMessage RequestID
-         * @property {Uint8Array|null} [Data] PineMessage Data
+         * @interface IPineMsg
+         * @property {string|null} [Route] PineMsg Route
+         * @property {number|null} [RequestID] PineMsg RequestID
+         * @property {Uint8Array|null} [Data] PineMsg Data
          */
 
         /**
-         * Constructs a new PineMessage.
+         * Constructs a new PineMsg.
          * @memberof message
-         * @classdesc Represents a PineMessage.
-         * @implements IPineMessage
+         * @classdesc Represents a PineMsg.
+         * @implements IPineMsg
          * @constructor
-         * @param {message.IPineMessage=} [properties] Properties to set
+         * @param {message.IPineMsg=} [properties] Properties to set
          */
-        function PineMessage(properties) {
+        function PineMsg(properties) {
             if (properties)
                 for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
                     if (properties[keys[i]] != null)
@@ -45,51 +45,51 @@ $root.message = (function() {
         }
 
         /**
-         * PineMessage Route.
+         * PineMsg Route.
          * @member {string} Route
-         * @memberof message.PineMessage
+         * @memberof message.PineMsg
          * @instance
          */
-        PineMessage.prototype.Route = "";
+        PineMsg.prototype.Route = "";
 
         /**
-         * PineMessage RequestID.
+         * PineMsg RequestID.
          * @member {number} RequestID
-         * @memberof message.PineMessage
+         * @memberof message.PineMsg
          * @instance
          */
-        PineMessage.prototype.RequestID = 0;
+        PineMsg.prototype.RequestID = 0;
 
         /**
-         * PineMessage Data.
+         * PineMsg Data.
          * @member {Uint8Array} Data
-         * @memberof message.PineMessage
+         * @memberof message.PineMsg
          * @instance
          */
-        PineMessage.prototype.Data = $util.newBuffer([]);
+        PineMsg.prototype.Data = $util.newBuffer([]);
 
         /**
-         * Creates a new PineMessage instance using the specified properties.
+         * Creates a new PineMsg instance using the specified properties.
          * @function create
-         * @memberof message.PineMessage
+         * @memberof message.PineMsg
          * @static
-         * @param {message.IPineMessage=} [properties] Properties to set
-         * @returns {message.PineMessage} PineMessage instance
+         * @param {message.IPineMsg=} [properties] Properties to set
+         * @returns {message.PineMsg} PineMsg instance
          */
-        PineMessage.create = function create(properties) {
-            return new PineMessage(properties);
+        PineMsg.create = function create(properties) {
+            return new PineMsg(properties);
         };
 
         /**
-         * Encodes the specified PineMessage message. Does not implicitly {@link message.PineMessage.verify|verify} messages.
+         * Encodes the specified PineMsg message. Does not implicitly {@link message.PineMsg.verify|verify} messages.
          * @function encode
-         * @memberof message.PineMessage
+         * @memberof message.PineMsg
          * @static
-         * @param {message.IPineMessage} message PineMessage message or plain object to encode
+         * @param {message.IPineMsg} message PineMsg message or plain object to encode
          * @param {$protobuf.Writer} [writer] Writer to encode to
          * @returns {$protobuf.Writer} Writer
          */
-        PineMessage.encode = function encode(message, writer) {
+        PineMsg.encode = function encode(message, writer) {
             if (!writer)
                 writer = $Writer.create();
             if (message.Route != null && Object.hasOwnProperty.call(message, "Route"))
@@ -102,78 +102,78 @@ $root.message = (function() {
         };
 
         /**
-         * Encodes the specified PineMessage message, length delimited. Does not implicitly {@link message.PineMessage.verify|verify} messages.
+         * Encodes the specified PineMsg message, length delimited. Does not implicitly {@link message.PineMsg.verify|verify} messages.
          * @function encodeDelimited
-         * @memberof message.PineMessage
+         * @memberof message.PineMsg
          * @static
-         * @param {message.IPineMessage} message PineMessage message or plain object to encode
+         * @param {message.IPineMsg} message PineMsg message or plain object to encode
          * @param {$protobuf.Writer} [writer] Writer to encode to
          * @returns {$protobuf.Writer} Writer
          */
-        PineMessage.encodeDelimited = function encodeDelimited(message, writer) {
+        PineMsg.encodeDelimited = function encodeDelimited(message, writer) {
             return this.encode(message, writer).ldelim();
         };
 
         /**
-         * Decodes a PineMessage message from the specified reader or buffer.
+         * Decodes a PineMsg message from the specified reader or buffer.
          * @function decode
-         * @memberof message.PineMessage
+         * @memberof message.PineMsg
          * @static
          * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
          * @param {number} [length] Message length if known beforehand
-         * @returns {message.PineMessage} PineMessage
+         * @returns {message.PineMsg} PineMsg
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        PineMessage.decode = function decode(reader, length) {
+        PineMsg.decode = function decode(reader, length) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            var end = length === undefined ? reader.len : reader.pos + length, message = new $root.message.PineMessage();
+            var end = length === undefined ? reader.len : reader.pos + length, message = new $root.message.PineMsg();
             while (reader.pos < end) {
                 var tag = reader.uint32();
                 switch (tag >>> 3) {
-                case 1:
-                    message.Route = reader.string();
-                    break;
-                case 2:
-                    message.RequestID = reader.int32();
-                    break;
-                case 3:
-                    message.Data = reader.bytes();
-                    break;
-                default:
-                    reader.skipType(tag & 7);
-                    break;
+                    case 1:
+                        message.Route = reader.string();
+                        break;
+                    case 2:
+                        message.RequestID = reader.int32();
+                        break;
+                    case 3:
+                        message.Data = reader.bytes();
+                        break;
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
                 }
             }
             return message;
         };
 
         /**
-         * Decodes a PineMessage message from the specified reader or buffer, length delimited.
+         * Decodes a PineMsg message from the specified reader or buffer, length delimited.
          * @function decodeDelimited
-         * @memberof message.PineMessage
+         * @memberof message.PineMsg
          * @static
          * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {message.PineMessage} PineMessage
+         * @returns {message.PineMsg} PineMsg
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        PineMessage.decodeDelimited = function decodeDelimited(reader) {
+        PineMsg.decodeDelimited = function decodeDelimited(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
             return this.decode(reader, reader.uint32());
         };
 
         /**
-         * Verifies a PineMessage message.
+         * Verifies a PineMsg message.
          * @function verify
-         * @memberof message.PineMessage
+         * @memberof message.PineMsg
          * @static
          * @param {Object.<string,*>} message Plain object to verify
          * @returns {string|null} `null` if valid, otherwise the reason why it is not
          */
-        PineMessage.verify = function verify(message) {
+        PineMsg.verify = function verify(message) {
             if (typeof message !== "object" || message === null)
                 return "object expected";
             if (message.Route != null && message.hasOwnProperty("Route"))
@@ -189,17 +189,17 @@ $root.message = (function() {
         };
 
         /**
-         * Creates a PineMessage message from a plain object. Also converts values to their respective internal types.
+         * Creates a PineMsg message from a plain object. Also converts values to their respective internal types.
          * @function fromObject
-         * @memberof message.PineMessage
+         * @memberof message.PineMsg
          * @static
          * @param {Object.<string,*>} object Plain object
-         * @returns {message.PineMessage} PineMessage
+         * @returns {message.PineMsg} PineMsg
          */
-        PineMessage.fromObject = function fromObject(object) {
-            if (object instanceof $root.message.PineMessage)
+        PineMsg.fromObject = function fromObject(object) {
+            if (object instanceof $root.message.PineMsg)
                 return object;
-            var message = new $root.message.PineMessage();
+            var message = new $root.message.PineMsg();
             if (object.Route != null)
                 message.Route = String(object.Route);
             if (object.RequestID != null)
@@ -213,15 +213,15 @@ $root.message = (function() {
         };
 
         /**
-         * Creates a plain object from a PineMessage message. Also converts values to other types if specified.
+         * Creates a plain object from a PineMsg message. Also converts values to other types if specified.
          * @function toObject
-         * @memberof message.PineMessage
+         * @memberof message.PineMsg
          * @static
-         * @param {message.PineMessage} message PineMessage
+         * @param {message.PineMsg} message PineMsg
          * @param {$protobuf.IConversionOptions} [options] Conversion options
          * @returns {Object.<string,*>} Plain object
          */
-        PineMessage.toObject = function toObject(message, options) {
+        PineMsg.toObject = function toObject(message, options) {
             if (!options)
                 options = {};
             var object = {};
@@ -246,17 +246,17 @@ $root.message = (function() {
         };
 
         /**
-         * Converts this PineMessage to JSON.
+         * Converts this PineMsg to JSON.
          * @function toJSON
-         * @memberof message.PineMessage
+         * @memberof message.PineMsg
          * @instance
          * @returns {Object.<string,*>} JSON object
          */
-        PineMessage.prototype.toJSON = function toJSON() {
+        PineMsg.prototype.toJSON = function toJSON() {
             return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
         };
 
-        return PineMessage;
+        return PineMsg;
     })();
 
     return message;

@@ -2,7 +2,7 @@
 import * as WebSocket from 'ws'
 import * as Event from 'events'
 import * as protobuf from 'protobufjs';
-import { message } from './pine_message/compiled'
+import { message } from './pine_msg/compiled'
 
 interface HandlerMap {
     handlerToCode: { [handler: string]: number },
@@ -23,7 +23,7 @@ export interface ProtoMap {
     }
 }
 
-const PineMessage = message.PineMessage
+const PineMsg = message.PineMsg
 const Root = protobuf.Root;
 (protobuf as any).loadFromString = (name, protoStr) => {
     const fetchFunc = Root.prototype.fetch;
@@ -81,7 +81,7 @@ export default class Pine extends Event.EventEmitter {
             //    console.info('event.data:', new Uint8Array(event.data as any))
             // }
             this.ws.addListener('message', (data: WebSocket.Data) => {
-                const message = PineMessage.decode(data as Buffer)
+                const message = PineMsg.decode(data as Buffer)
                 const result = message.toJSON()
 
                 const routeBytes = new TextEncoder().encode(result.Route)
@@ -191,13 +191,13 @@ export default class Pine extends Event.EventEmitter {
             //
         }
 
-        const msesage = PineMessage.create({
+        const msesage = PineMsg.create({
             Route: route,
             RequestID: this.RequestID,
             Data: encodedData
         });
 
-        const buffer = PineMessage.encode(msesage).finish();
+        const buffer = PineMsg.encode(msesage).finish();
 
         this.ws.send(buffer, { binary: true })
 
@@ -228,13 +228,13 @@ export default class Pine extends Event.EventEmitter {
             encodedData = new TextEncoder().encode(JSON.stringify(data))
         }
 
-        const msesage = PineMessage.create({
+        const msesage = PineMsg.create({
             Route: route,
             RequestID: 0,
             Data: encodedData
         });
 
-        const buffer = PineMessage.encode(msesage).finish();
+        const buffer = PineMsg.encode(msesage).finish();
 
         this.ws.send(buffer, { binary: true })
     }
