@@ -3,6 +3,7 @@ import * as WebSocket from 'ws'
 import * as Event from 'events'
 import * as protobuf from 'protobufjs';
 import { message } from './pine_msg/compiled'
+import { TextDecoder, TextEncoder } from './en_decoder';
 
 interface HandlerMap {
     handlerToCode: { [handler: string]: number },
@@ -118,7 +119,7 @@ export default class Pine extends Event.EventEmitter {
                             const data = RequestType.decode((message as any).Data)
                             cb(data)
                         } else {
-                            const data = new TextDecoder('utf-8').decode(((message as any).Data))
+                            const data = new TextDecoder().decode(((message as any).Data))
                             cb(JSON.parse(data))
                         }
 
@@ -138,7 +139,7 @@ export default class Pine extends Event.EventEmitter {
                     if (RequestType) {
                         data = RequestType.decode((message as any).Data)
                     } else {
-                        data = new TextDecoder('utf-8').decode(((message as any).Data))
+                        data = new TextDecoder().decode(((message as any).Data))
                         data = JSON.parse(data)
                     }
 
