@@ -93,63 +93,69 @@ export default class Pine extends Event.EventEmitter {
                 const message = PineMsg.decode(data as Buffer)
                 const result = message.toJSON()
 
-                const routeBytes = new TextEncoder().encode(result.Route)
-                if (routeBytes.length === 2) {
-                    const serverKind = ServerDist.codeToKind[routeBytes[0]]
-                    if (result.RequestID) {
-                        const handler = Pine.ProtoMap[serverKind].handlers.codeToHandler[routeBytes[1]]
-                        result.Route = `${serverKind}.${handler}`
-                    } else {
-                        const event = Pine.ProtoMap[serverKind].events.codeToEvent[routeBytes[1]]
-                        result.Route = `${serverKind}.${event}`
+                try {
+                    const routeBytes = new TextEncoder().encode(result.Route)
+                    if (routeBytes.length === 2) {
+                        const serverKind = ServerDist.codeToKind[routeBytes[0]]
+                        if (result.RequestID) {
+                            const handler = Pine.ProtoMap[serverKind].handlers.codeToHandler[routeBytes[1]]
+                            result.Route = `${serverKind}.${handler}`
+                        } else {
+                            const event = Pine.ProtoMap[serverKind].events.codeToEvent[routeBytes[1]]
+                            result.Route = `${serverKind}.${event}`
+                        }
+
                     }
 
-                }
+                    const serverKind = result.Route.split('.')[0]
+                    const clientProtoRoot = Pine.ProtoMap[serverKind] ? Pine.ProtoMap[serverKind].client : undefined
 
-                const serverKind = result.Route.split('.')[0]
-                const clientProtoRoot = Pine.ProtoMap[serverKind] ? Pine.ProtoMap[serverKind].client : undefined
+                    if (result.RequestID) {
+                        const cb = requestMap[result.RequestID]
 
-                if (result.RequestID) {
-                    const cb = requestMap[result.RequestID]
+                        if (cb) {
+                            delete requestMap[result.RequestID]
 
-                    if (cb) {
-                        delete requestMap[result.RequestID]
+                            let RequestType
+                            try {
+                                RequestType = clientProtoRoot.lookupType(result.Route + 'Resp')
+                            } catch (e) {
+                                // console.log(`${result.Route}'s proto message is not found.`, e)
+                            }
+
+                            if (RequestType) {
+                                const data = RequestType.decode(message.Data)
+                                cb(data)
+                            } else {
+                                const data = new TextDecoder().decode((message.Data))
+                                cb(JSON.parse(data))
+                            }
+
+                        } else {
+                            console.error('No callback response;', result)
+                        }
+                    } else {
 
                         let RequestType
                         try {
-                            RequestType = clientProtoRoot.lookupType(result.Route + 'Resp')
+                            RequestType = clientProtoRoot.lookupType(result.Route)
                         } catch (e) {
-                            // console.log(`${result.Route}'s proto message is not found.`, e)
+                            // console.log(`${result.Route}'s proto message is not found.`)
                         }
 
+                        let data
                         if (RequestType) {
-                            const data = RequestType.decode(message.Data)
-                            cb(data)
+                            data = RequestType.decode(message.Data)
                         } else {
-                            const data = new TextDecoder().decode((message.Data))
-                            cb(JSON.parse(data))
+                            data = new TextDecoder().decode((message.Data))
+                            data = JSON.parse(data)
                         }
-
-                    } else {
-                        console.error('No callback response;', result)
+                        this.emit(result.Route, data)
                     }
-                } else {
-
-                    let RequestType
-                    try {
-                        RequestType = clientProtoRoot.lookupType(result.Route)
-                    } catch (e) {
-                        // console.log(`${result.Route}'s proto message is not found.`)
-                    }
-
-                    let data
-                    if (RequestType) {
-                        data = RequestType.decode(message.Data)
-                    } else {
-                        data = new TextDecoder().decode((message.Data))
-                    }
-                    this.emit(result.Route, data)
+                } catch (e) {
+                    console.error(e, '\nData:', JSON.stringify(result))
                 }
+
             })
 
             this.ws.onclose = (event: WebSocket.CloseEvent) => {
