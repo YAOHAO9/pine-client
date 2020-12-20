@@ -5,6 +5,14 @@ import * as protobuf from 'protobufjs';
 import { message } from './pine_msg/compiled'
 import { TextDecoder, TextEncoder } from './en_decoder';
 
+process.on('uncaughtException', (error) => {
+    console.error(error)
+})
+
+process.on('unhandledRejection', (error) => {
+    console.error(error)
+})
+
 interface HandlerMap {
     handlerToCode: { [handler: string]: number },
     codeToHandler: { [code: number]: string },
@@ -107,7 +115,6 @@ export default class Pine extends Event.EventEmitter {
                     if (cb) {
                         delete requestMap[result.RequestID]
 
-
                         let RequestType
                         try {
                             RequestType = clientProtoRoot.lookupType(result.Route + 'Resp')
@@ -116,10 +123,10 @@ export default class Pine extends Event.EventEmitter {
                         }
 
                         if (RequestType) {
-                            const data = RequestType.decode((message as any).Data)
+                            const data = RequestType.decode(message.Data)
                             cb(data)
                         } else {
-                            const data = new TextDecoder().decode(((message as any).Data))
+                            const data = new TextDecoder().decode((message.Data))
                             cb(JSON.parse(data))
                         }
 
@@ -137,15 +144,9 @@ export default class Pine extends Event.EventEmitter {
 
                     let data
                     if (RequestType) {
-                        data = RequestType.decode((message as any).Data)
+                        data = RequestType.decode(message.Data)
                     } else {
-                        data = new TextDecoder().decode(((message as any).Data))
-                        try {
-                            data = JSON.parse(data)
-                        } catch {
-                            // data = data
-                            console.warn(result.Route, data)
-                        }
+                        data = new TextDecoder().decode((message.Data))
                     }
                     this.emit(result.Route, data)
                 }
