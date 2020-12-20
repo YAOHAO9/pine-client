@@ -140,9 +140,13 @@ export default class Pine extends Event.EventEmitter {
                         data = RequestType.decode((message as any).Data)
                     } else {
                         data = new TextDecoder().decode(((message as any).Data))
-                        data = JSON.parse(data)
+                        try {
+                            data = JSON.parse(data)
+                        } catch {
+                            // data = data
+                            console.warn(result.Route, data)
+                        }
                     }
-
                     this.emit(result.Route, data)
                 }
             })
