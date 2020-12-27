@@ -34,6 +34,7 @@ export interface ProtoMap {
 
 const PineMsg = message.PineMsg
 const Root = protobuf.Root;
+
 (protobuf as any).loadFromString = (name, protoStr) => {
     const fetchFunc = Root.prototype.fetch;
     Root.prototype.fetch = (_, cb) => cb(null, protoStr);
@@ -73,6 +74,10 @@ export default class Pine extends Event.EventEmitter {
         pine.on('connector.__serverdict__', (data) => {
             ServerDist = data
         })
+
+        pine.on('connector.__Compress__', (data) => {
+            Pine.parseCompressData(data)
+        })
         return pine
     }
 
@@ -82,6 +87,7 @@ export default class Pine extends Event.EventEmitter {
         return new Promise((resolve, reject) => {
             this.ws = new WebSocket(wsUrl)
             this.ws.onopen = async (_: WebSocket.OpenEvent) => {
+                await this.fetchProto('connector')
                 resolve(this.ws)
                 reject = null
             }
@@ -254,48 +260,52 @@ export default class Pine extends Event.EventEmitter {
     public fetchProto(serverKind: string) {
         return new Promise(resolve => {
             this.request(`${serverKind}.__FetchProto__`, '', async (data) => {
-
-                let clientProtoRoot
-                if (data.client) {
-                    clientProtoRoot = await (protobuf as any).loadFromString(serverKind, data.client)
-                }
-                let serverProtoRoot
-                if (data.server) {
-                    serverProtoRoot = await (protobuf as any).loadFromString(serverKind, data.server)
-                }
-
-
-                const handlers: HandlerMap = { handlerToCode: {}, codeToHandler: {} }
-                if (data.handlers && data.handlers instanceof Array) {
-                    data.handlers.forEach((handler, index) => {
-                        const code = index + 1
-                        handlers.handlerToCode[handler] = code
-                        handlers.codeToHandler[code] = handler
-                    })
-                }
-
-
-                const events: EventMap = { eventToCode: {}, codeToEvent: {} }
-                if (data.events && data.events instanceof Array) {
-                    data.events.forEach((event, index) => {
-                        const code = index + 1
-                        events.eventToCode[event] = code
-                        events.codeToEvent[code] = event
-                    })
-                }
-
-                Pine.ProtoMap[serverKind] = {
-                    client: clientProtoRoot,
-                    server: serverProtoRoot,
-                    handlers,
-                    events
-                }
-
+                await Pine.parseCompressData(data)
                 resolve(data)
             })
         })
 
     }
 
+    private static async parseCompressData(data) {
+
+        const serverKind = data.serverKind
+
+        let clientProtoRoot
+        if (data.client) {
+            clientProtoRoot = await (protobuf as any).loadFromString(serverKind, data.client)
+        }
+        let serverProtoRoot
+        if (data.server) {
+            serverProtoRoot = await (protobuf as any).loadFromString(serverKind, data.server)
+        }
+
+
+        const handlers: HandlerMap = { handlerToCode: {}, codeToHandler: {} }
+        if (data.handlers && data.handlers instanceof Array) {
+            data.handlers.forEach((handler, index) => {
+                const code = index + 1
+                handlers.handlerToCode[handler] = code
+                handlers.codeToHandler[code] = handler
+            })
+        }
+
+
+        const events: EventMap = { eventToCode: {}, codeToEvent: {} }
+        if (data.events && data.events instanceof Array) {
+            data.events.forEach((event, index) => {
+                const code = index + 1
+                events.eventToCode[event] = code
+                events.codeToEvent[code] = event
+            })
+        }
+
+        Pine.ProtoMap[serverKind] = {
+            client: clientProtoRoot,
+            server: serverProtoRoot,
+            handlers,
+            events
+        }
+    }
 }
 
