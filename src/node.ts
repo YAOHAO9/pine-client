@@ -36,9 +36,6 @@ export default class Pine extends Event.EventEmitter {
                 resolve(this.ws)
             }
 
-            // this.ws.onmessage = (event: WebSocket.MessageEvent) => {
-            //    console.info('event.data:', new Uint8Array(event.data as any))
-            // }
             this.ws.addListener('message', (data: WebSocket.Data) => {
                 onMessage.call(this, data)
             })

@@ -21,7 +21,6 @@ const requestMap = {}
 const MaxRequestID = 50000;
 let RequestID = 1
 
-
 const ServerDist: {
     kindToCode: { [serverKind: string]: number },
     codeToKind: { [serverCode: number]: string }
@@ -29,7 +28,6 @@ const ServerDist: {
     kindToCode: {},
     codeToKind: {}
 }
-
 
 export interface HandlerMap {
     handlerToCode: { [handler: string]: number },
@@ -43,13 +41,11 @@ export interface EventMap {
 
 export interface ProtoMap {
     [serverKind: string]: {
-        client: protobuf.Root,
-        server: protobuf.Root,
+        protobufRoot: protobuf.Root,
         handlers: HandlerMap
         events: EventMap
     }
 }
-
 
 export function initSysEvent(pine: Pine) {
     pine.on('connector.__serverdict__', (data) => {
@@ -61,10 +57,10 @@ export function request(route: string, data: any, cb: (data: any) => any) {
 
     const [serverKind, handler] = route.split('.')
 
-    const serverProtoRoot = ProtoMap[serverKind] ? ProtoMap[serverKind].server : undefined
+    const protobufRoot = ProtoMap[serverKind] ? ProtoMap[serverKind].protobufRoot : undefined
     let RequestType
     try {
-        RequestType = serverProtoRoot.lookupType(route)
+        RequestType = protobufRoot.lookupType(route)
     } catch (e) {
         // console.log(`${route}'s proto message is not found.`)
     }
@@ -108,10 +104,10 @@ export function notify(route: string, data: any) {
 
     const serverKind = route.split('.')[0]
 
-    const serverProtoRoot = ProtoMap[serverKind] ? ProtoMap[serverKind].server : undefined
+    const protobufRoot = ProtoMap[serverKind] ? ProtoMap[serverKind].protobufRoot : undefined
     let RequestType
     try {
-        RequestType = serverProtoRoot.lookupType(route)
+        RequestType = protobufRoot.lookupType(route)
     } catch (e) {
         // console.log(`${route}'s proto message is not found.`)
     }
@@ -150,13 +146,9 @@ async function parseCompressInfo(data) {
 
     const serverKind = data.serverKind
 
-    let clientProtoRoot
-    if (data.client) {
-        clientProtoRoot = await (protobuf as any).loadFromString(serverKind, data.client)
-    }
-    let serverProtoRoot
-    if (data.server) {
-        serverProtoRoot = await (protobuf as any).loadFromString(serverKind, data.server)
+    let protobufRoot
+    if (data.protobuf) {
+        protobufRoot = await (protobuf as any).loadFromString(serverKind, data.protobuf)
     }
 
 
@@ -180,8 +172,7 @@ async function parseCompressInfo(data) {
     }
 
     ProtoMap[serverKind] = {
-        client: clientProtoRoot,
-        server: serverProtoRoot,
+        protobufRoot,
         handlers,
         events
     }
@@ -206,7 +197,7 @@ export function onMessage(data) {
         }
 
         const serverKind = result.Route.split('.')[0]
-        const clientProtoRoot = ProtoMap[serverKind] ? ProtoMap[serverKind].client : undefined
+        const protobufRoot = ProtoMap[serverKind] ? ProtoMap[serverKind].protobufRoot : undefined
 
         if (result.RequestID) {
             const cb = requestMap[result.RequestID]
@@ -216,7 +207,7 @@ export function onMessage(data) {
 
                 let RequestType
                 try {
-                    RequestType = clientProtoRoot.lookupType(result.Route + 'Resp')
+                    RequestType = protobufRoot.lookupType(result.Route + 'Resp')
                 } catch (e) {
                     // console.log(`${result.Route}'s proto message is not found.`, e)
                 }
@@ -236,7 +227,7 @@ export function onMessage(data) {
 
             let RequestType
             try {
-                RequestType = clientProtoRoot.lookupType(result.Route)
+                RequestType = protobufRoot.lookupType(result.Route)
             } catch (e) {
                 // console.log(`${result.Route}'s proto message is not found.`)
             }
