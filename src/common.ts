@@ -39,11 +39,19 @@ export interface EventMap {
     codeToEvent: { [code: number]: string },
 }
 
+interface ProtoBufData {
+    serverKind: string,
+    proto: string,
+    handlers: string[],
+    events: string[],
+}
+
 export interface ProtoMap {
     [serverKind: string]: {
-        protobufRoot: protobuf.Root,
+        protoRoot: protobuf.Root,
         handlers: HandlerMap
         events: EventMap
+        data: ProtoBufData
     }
 }
 
@@ -57,10 +65,10 @@ export function request(route: string, data: any, cb: (data: any) => any) {
 
     const [serverKind, handler] = route.split('.')
 
-    const protobufRoot = ProtoMap[serverKind] ? ProtoMap[serverKind].protobufRoot : undefined
+    const protoRoot = ProtoMap[serverKind] ? ProtoMap[serverKind].protoRoot : undefined
     let RequestType
     try {
-        RequestType = protobufRoot.lookupType(route)
+        RequestType = protoRoot.lookupType(route)
     } catch (e) {
         // console.log(`${route}'s proto message is not found.`)
     }
@@ -104,10 +112,10 @@ export function notify(route: string, data: any) {
 
     const serverKind = route.split('.')[0]
 
-    const protobufRoot = ProtoMap[serverKind] ? ProtoMap[serverKind].protobufRoot : undefined
+    const protoRoot = ProtoMap[serverKind] ? ProtoMap[serverKind].protoRoot : undefined
     let RequestType
     try {
-        RequestType = protobufRoot.lookupType(route)
+        RequestType = protoRoot.lookupType(route)
     } catch (e) {
         // console.log(`${route}'s proto message is not found.`)
     }
@@ -131,9 +139,13 @@ export function notify(route: string, data: any) {
 }
 
 // 获取proto文件
-export function fetchProto(serverKind: string) {
-    return new Promise(resolve => {
-        this.request(`${serverKind}.__FetchProto__`, '', async (data) => {
+export function fetchProto(serverKind: string, forceUpdate: boolean) {
+    return new Promise<ProtoBufData>(resolve => {
+        if (!forceUpdate && ProtoMap[serverKind] && ProtoMap[serverKind].protoRoot) {
+            resolve(ProtoMap[serverKind].data)
+            return
+        }
+        this.request(`${serverKind}.__FetchProto__`, '', async (data: ProtoBufData) => {
             await parseCompressInfo(data)
             resolve(data)
         })
@@ -142,13 +154,13 @@ export function fetchProto(serverKind: string) {
 }
 
 // 解析编码压缩元信息
-async function parseCompressInfo(data) {
+async function parseCompressInfo(data: ProtoBufData) {
 
     const serverKind = data.serverKind
 
-    let protobufRoot
-    if (data.protobuf) {
-        protobufRoot = await (protobuf as any).loadFromString(serverKind, data.protobuf)
+    let protoRoot
+    if (data.proto) {
+        protoRoot = await (protobuf as any).loadFromString(serverKind, data.proto)
     }
 
 
@@ -172,9 +184,10 @@ async function parseCompressInfo(data) {
     }
 
     ProtoMap[serverKind] = {
-        protobufRoot,
+        protoRoot,
         handlers,
-        events
+        events,
+        data,
     }
 }
 
@@ -197,7 +210,7 @@ export function onMessage(data) {
         }
 
         const serverKind = result.Route.split('.')[0]
-        const protobufRoot = ProtoMap[serverKind] ? ProtoMap[serverKind].protobufRoot : undefined
+        const protoRoot = ProtoMap[serverKind] ? ProtoMap[serverKind].protoRoot : undefined
 
         if (result.RequestID) {
             const cb = requestMap[result.RequestID]
@@ -207,7 +220,7 @@ export function onMessage(data) {
 
                 let RequestType
                 try {
-                    RequestType = protobufRoot.lookupType(result.Route + 'Resp')
+                    RequestType = protoRoot.lookupType(result.Route + 'Resp')
                 } catch (e) {
                     // console.log(`${result.Route}'s proto message is not found.`, e)
                 }
@@ -227,7 +240,7 @@ export function onMessage(data) {
 
             let RequestType
             try {
-                RequestType = protobufRoot.lookupType(result.Route)
+                RequestType = protoRoot.lookupType(result.Route)
             } catch (e) {
                 // console.log(`${result.Route}'s proto message is not found.`)
             }

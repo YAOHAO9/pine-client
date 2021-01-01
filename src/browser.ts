@@ -58,5 +58,10 @@ export default class Pine extends Event.EventEmitter {
     public notify(route: string, data: any) {
         notify.call(this, route, data)
     }
+
+    // 获取proto
+    public fetchProto(serverKind: string, forceUpdate: boolean = false) {
+        fetchProto.call(this, serverKind, forceUpdate)
+    }
 }
 
