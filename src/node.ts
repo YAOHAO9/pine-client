@@ -1,7 +1,7 @@
 
 import * as WebSocket from 'ws'
 import * as Event from 'events'
-import { initSysEvent, onMessage, request, notify, fetchProto } from './common';
+import { onMessage, request, notify, fetchProto } from './common';
 
 
 process.on('uncaughtException', (error) => {
@@ -20,9 +20,6 @@ export default class Pine extends Event.EventEmitter {
 
     public static init() {
         const pine = new Pine()
-
-        initSysEvent.call(this, pine)
-
         return pine
     }
 

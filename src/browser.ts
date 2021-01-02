@@ -1,6 +1,6 @@
 
 import * as Event from 'events'
-import { initSysEvent, onMessage, request, notify, fetchProto } from './common';
+import { onMessage, request, notify, fetchProto } from './common';
 
 window.onunhandledrejection = (error) => {
     console.error(error)
@@ -10,10 +10,8 @@ export default class Pine extends Event.EventEmitter {
 
     private ws: WebSocket
 
-
     public static init() {
         const pine = new Pine()
-        initSysEvent.call(this, pine)
         return pine
     }
 

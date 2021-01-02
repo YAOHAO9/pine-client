@@ -2,7 +2,6 @@
 import * as protobuf from 'protobufjs';
 import { message } from './pine_msg/compiled'
 import { TextDecoder, TextEncoder } from './en_decoder';
-import Pine from 'pine-client/src/node';
 
 const ProtoMap: ProtoMap = {}
 
@@ -21,7 +20,7 @@ const requestMap = {}
 const MaxRequestID = 50000;
 let RequestID = 1
 
-const ServerDist: {
+const ServerCodeMap: {
     kindToCode: { [serverKind: string]: number },
     codeToKind: { [serverCode: number]: string }
 } = {
@@ -40,6 +39,7 @@ export interface EventMap {
 }
 
 interface ProtoBufData {
+    serverCode: number,
     serverKind: string,
     proto: string,
     handlers: string[],
@@ -55,11 +55,6 @@ export interface ProtoMap {
     }
 }
 
-export function initSysEvent(pine: Pine) {
-    pine.on('connector.__serverdict__', (data) => {
-        Object.assign(ServerDist, data)
-    })
-}
 // Request 请求
 export function request(route: string, data: any, cb: (data: any) => any) {
 
@@ -81,7 +76,7 @@ export function request(route: string, data: any, cb: (data: any) => any) {
     }
 
     try {
-        const serverKindCode = ServerDist.kindToCode[serverKind]
+        const serverKindCode = ServerCodeMap.kindToCode[serverKind]
         const handlerCode = ProtoMap[serverKind].handlers.handlerToCode[handler]
         if (serverKindCode && handlerCode) {
             route = new TextDecoder().decode(new Uint8Array([serverKindCode, handlerCode]))
@@ -156,6 +151,10 @@ export function fetchProto(serverKind: string, forceUpdate: boolean) {
 // 解析编码压缩元信息
 async function parseCompressInfo(data: ProtoBufData) {
 
+    ServerCodeMap.codeToKind[data.serverCode] = data.serverKind
+    ServerCodeMap.kindToCode[data.serverKind] = data.serverCode
+
+    // serverKind
     const serverKind = data.serverKind
 
     let protoRoot
@@ -198,7 +197,7 @@ export function onMessage(data) {
     try {
         const routeBytes = new TextEncoder().encode(result.Route)
         if (routeBytes.length === 2) {
-            const serverKind = ServerDist.codeToKind[routeBytes[0]]
+            const serverKind = ServerCodeMap.codeToKind[routeBytes[0]]
             if (result.RequestID) {
                 const handler = ProtoMap[serverKind].handlers.codeToHandler[routeBytes[1]]
                 result.Route = `${serverKind}.${handler}`
