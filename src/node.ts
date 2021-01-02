@@ -31,6 +31,7 @@ export default class Pine extends Event.EventEmitter {
             this.ws.onopen = async (_: WebSocket.OpenEvent) => {
                 await fetchProto.call(this, 'connector')
                 resolve(this.ws)
+                reject = null
             }
 
             this.ws.addListener('message', (data: WebSocket.Data) => {
@@ -64,7 +65,7 @@ export default class Pine extends Event.EventEmitter {
 
     // 获取proto
     public fetchProto(serverKind: string, forceUpdate: boolean = false) {
-        fetchProto.call(this, serverKind, forceUpdate)
+        return fetchProto.call(this, serverKind, forceUpdate)
     }
 }
 

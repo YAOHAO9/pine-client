@@ -3,8 +3,7 @@ import * as protobuf from 'protobufjs';
 import { message } from './pine_msg/compiled'
 import { TextDecoder, TextEncoder } from './en_decoder';
 
-const ProtoMap: ProtoMap = {}
-
+const CompressDataMap: ProtoMap = {}
 const PineMsg = message.PineMsg
 const Root = protobuf.Root;
 
@@ -18,6 +17,8 @@ const Root = protobuf.Root;
 
 const requestMap = {}
 const MaxRequestID = 50000;
+const FetchProtoHandler = '__FetchProto__'
+
 let RequestID = 1
 
 const ServerCodeMap: {
@@ -60,7 +61,11 @@ export function request(route: string, data: any, cb: (data: any) => any) {
 
     const [serverKind, handler] = route.split('.')
 
-    const protoRoot = ProtoMap[serverKind] ? ProtoMap[serverKind].protoRoot : undefined
+    if (handler !== FetchProtoHandler && !CompressDataMap[serverKind]) {
+        return console.error(`Please exec 'await pine.fetchProto("${serverKind}");' first`)
+    }
+
+    const protoRoot = CompressDataMap[serverKind] ? CompressDataMap[serverKind].protoRoot : undefined
     let RequestType
     try {
         RequestType = protoRoot.lookupType(route)
@@ -77,7 +82,7 @@ export function request(route: string, data: any, cb: (data: any) => any) {
 
     try {
         const serverKindCode = ServerCodeMap.kindToCode[serverKind]
-        const handlerCode = ProtoMap[serverKind].handlers.handlerToCode[handler]
+        const handlerCode = CompressDataMap[serverKind].handlers.handlerToCode[handler]
         if (serverKindCode && handlerCode) {
             route = new TextDecoder().decode(new Uint8Array([serverKindCode, handlerCode]))
         }
@@ -107,7 +112,7 @@ export function notify(route: string, data: any) {
 
     const serverKind = route.split('.')[0]
 
-    const protoRoot = ProtoMap[serverKind] ? ProtoMap[serverKind].protoRoot : undefined
+    const protoRoot = CompressDataMap[serverKind] ? CompressDataMap[serverKind].protoRoot : undefined
     let RequestType
     try {
         RequestType = protoRoot.lookupType(route)
@@ -136,58 +141,57 @@ export function notify(route: string, data: any) {
 // 获取proto文件
 export function fetchProto(serverKind: string, forceUpdate: boolean) {
     return new Promise<ProtoBufData>(resolve => {
-        if (!forceUpdate && ProtoMap[serverKind] && ProtoMap[serverKind].protoRoot) {
-            resolve(ProtoMap[serverKind].data)
+
+        if (!forceUpdate && CompressDataMap[serverKind] && CompressDataMap[serverKind].protoRoot) {
+            resolve(CompressDataMap[serverKind].data)
             return
         }
-        this.request(`${serverKind}.__FetchProto__`, '', async (data: ProtoBufData) => {
-            await parseCompressInfo(data)
+
+        this.request(`${serverKind}.${FetchProtoHandler}`, '', async (data: ProtoBufData) => {
+
+            // ServerCode Map
+            ServerCodeMap.codeToKind[data.serverCode] = data.serverKind
+            ServerCodeMap.kindToCode[data.serverKind] = data.serverCode
+
+            // ServerKind
+            const serverKind = data.serverKind
+
+            let protoRoot
+            if (data.proto) {
+                // Protobuf
+                protoRoot = await (protobuf as any).loadFromString(serverKind, data.proto)
+            }
+
+            // HandlerMap
+            const handlers: HandlerMap = { handlerToCode: {}, codeToHandler: {} }
+            if (data.handlers && data.handlers instanceof Array) {
+                data.handlers.forEach((handler, index) => {
+                    const code = index + 1
+                    handlers.handlerToCode[handler] = code
+                    handlers.codeToHandler[code] = handler
+                })
+            }
+
+            // EventMap
+            const events: EventMap = { eventToCode: {}, codeToEvent: {} }
+            if (data.events && data.events instanceof Array) {
+                data.events.forEach((event, index) => {
+                    const code = index + 1
+                    events.eventToCode[event] = code
+                    events.codeToEvent[code] = event
+                })
+            }
+
+            CompressDataMap[serverKind] = {
+                protoRoot,
+                handlers,
+                events,
+                data,
+            }
+
             resolve(data)
         })
     })
-
-}
-
-// 解析编码压缩元信息
-async function parseCompressInfo(data: ProtoBufData) {
-
-    ServerCodeMap.codeToKind[data.serverCode] = data.serverKind
-    ServerCodeMap.kindToCode[data.serverKind] = data.serverCode
-
-    // serverKind
-    const serverKind = data.serverKind
-
-    let protoRoot
-    if (data.proto) {
-        protoRoot = await (protobuf as any).loadFromString(serverKind, data.proto)
-    }
-
-
-    const handlers: HandlerMap = { handlerToCode: {}, codeToHandler: {} }
-    if (data.handlers && data.handlers instanceof Array) {
-        data.handlers.forEach((handler, index) => {
-            const code = index + 1
-            handlers.handlerToCode[handler] = code
-            handlers.codeToHandler[code] = handler
-        })
-    }
-
-
-    const events: EventMap = { eventToCode: {}, codeToEvent: {} }
-    if (data.events && data.events instanceof Array) {
-        data.events.forEach((event, index) => {
-            const code = index + 1
-            events.eventToCode[event] = code
-            events.codeToEvent[code] = event
-        })
-    }
-
-    ProtoMap[serverKind] = {
-        protoRoot,
-        handlers,
-        events,
-        data,
-    }
 }
 
 
@@ -199,17 +203,17 @@ export function onMessage(data) {
         if (routeBytes.length === 2) {
             const serverKind = ServerCodeMap.codeToKind[routeBytes[0]]
             if (result.RequestID) {
-                const handler = ProtoMap[serverKind].handlers.codeToHandler[routeBytes[1]]
+                const handler = CompressDataMap[serverKind].handlers.codeToHandler[routeBytes[1]]
                 result.Route = `${serverKind}.${handler}`
             } else {
-                const event = ProtoMap[serverKind].events.codeToEvent[routeBytes[1]]
+                const event = CompressDataMap[serverKind].events.codeToEvent[routeBytes[1]]
                 result.Route = `${serverKind}.${event}`
             }
 
         }
 
         const serverKind = result.Route.split('.')[0]
-        const protoRoot = ProtoMap[serverKind] ? ProtoMap[serverKind].protoRoot : undefined
+        const protoRoot = CompressDataMap[serverKind] ? CompressDataMap[serverKind].protoRoot : undefined
 
         if (result.RequestID) {
             const cb = requestMap[result.RequestID]

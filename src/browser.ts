@@ -26,6 +26,7 @@ export default class Pine extends Event.EventEmitter {
             this.ws.onopen = async (_) => {
                 await fetchProto.call(this, 'connector')
                 resolve(this.ws)
+                reject = null
             }
 
             this.ws.addEventListener('message', (data) => {
@@ -59,7 +60,7 @@ export default class Pine extends Event.EventEmitter {
 
     // 获取proto
     public fetchProto(serverKind: string, forceUpdate: boolean = false) {
-        fetchProto.call(this, serverKind, forceUpdate)
+        return fetchProto.call(this, serverKind, forceUpdate)
     }
 }
 
