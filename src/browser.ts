@@ -49,8 +49,8 @@ export default class Pine extends Event.EventEmitter {
     }
 
     // Request 请求
-    public request(route: string, data: any, cb: (data: any) => any) {
-        request.call(this, route, data, cb)
+    public request(route: string, data: any): Promise<any> {
+        return request.call(this, route, data)
     }
 
     // Notify 无回复通知

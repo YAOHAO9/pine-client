@@ -57,12 +57,12 @@ export interface ProtoMap {
 }
 
 // Request 请求
-export function request(route: string, data: any, cb: (data: any) => any) {
+export function request(route: string, data: any) {
 
     const [serverKind, handler] = route.split('.')
 
     if (handler !== FetchProtoHandler && !CompressDataMap[serverKind]) {
-        return console.error(`Please exec 'await pine.fetchProto("${serverKind}");' first`)
+        return Promise.reject(`Please exec 'await pine.fetchProto("${serverKind}");' first`)
     }
 
     const protoRoot = CompressDataMap[serverKind] ? CompressDataMap[serverKind].protoRoot : undefined
@@ -100,11 +100,15 @@ export function request(route: string, data: any, cb: (data: any) => any) {
 
     this.ws.send(buffer, { binary: true })
 
-    requestMap[RequestID] = cb
-    RequestID++
-    if (RequestID >= MaxRequestID) {
-        RequestID = 1
-    }
+    return new Promise(resolve => {
+        requestMap[RequestID] = (args) => {
+            resolve(args)
+        }
+        RequestID++
+        if (RequestID >= MaxRequestID) {
+            RequestID = 1
+        }
+    })
 }
 
 // Notify 无回复通知
@@ -139,59 +143,54 @@ export function notify(route: string, data: any) {
 }
 
 // 获取proto文件
-export function fetchProto(serverKind: string, forceUpdate: boolean) {
-    return new Promise<ProtoBufData>(resolve => {
+export async function fetchProto(serverKind: string, forceUpdate: boolean) {
 
-        if (!forceUpdate && CompressDataMap[serverKind] && CompressDataMap[serverKind].protoRoot) {
-            resolve(CompressDataMap[serverKind].data)
-            return
-        }
+    if (!forceUpdate && CompressDataMap[serverKind] && CompressDataMap[serverKind].protoRoot) {
+        return CompressDataMap[serverKind].data
+    }
 
-        this.request(`${serverKind}.${FetchProtoHandler}`, '', async (data: ProtoBufData) => {
+    const data: ProtoBufData = await this.request(`${serverKind}.${FetchProtoHandler}`, '')
+    // ServerCode Map
+    ServerCodeMap.codeToKind[data.serverCode] = data.serverKind
+    ServerCodeMap.kindToCode[data.serverKind] = data.serverCode
 
-            // ServerCode Map
-            ServerCodeMap.codeToKind[data.serverCode] = data.serverKind
-            ServerCodeMap.kindToCode[data.serverKind] = data.serverCode
+    // ServerKind
+    serverKind = data.serverKind
 
-            // ServerKind
-            const serverKind = data.serverKind
+    let protoRoot
+    if (data.proto) {
+        // Protobuf
+        protoRoot = await (protobuf as any).loadFromString(serverKind, data.proto)
+    }
 
-            let protoRoot
-            if (data.proto) {
-                // Protobuf
-                protoRoot = await (protobuf as any).loadFromString(serverKind, data.proto)
-            }
-
-            // HandlerMap
-            const handlers: HandlerMap = { handlerToCode: {}, codeToHandler: {} }
-            if (data.handlers && data.handlers instanceof Array) {
-                data.handlers.forEach((handler, index) => {
-                    const code = index + 1
-                    handlers.handlerToCode[handler] = code
-                    handlers.codeToHandler[code] = handler
-                })
-            }
-
-            // EventMap
-            const events: EventMap = { eventToCode: {}, codeToEvent: {} }
-            if (data.events && data.events instanceof Array) {
-                data.events.forEach((event, index) => {
-                    const code = index + 1
-                    events.eventToCode[event] = code
-                    events.codeToEvent[code] = event
-                })
-            }
-
-            CompressDataMap[serverKind] = {
-                protoRoot,
-                handlers,
-                events,
-                data,
-            }
-
-            resolve(data)
+    // HandlerMap
+    const handlers: HandlerMap = { handlerToCode: {}, codeToHandler: {} }
+    if (data.handlers && data.handlers instanceof Array) {
+        data.handlers.forEach((handler, index) => {
+            const code = index + 1
+            handlers.handlerToCode[handler] = code
+            handlers.codeToHandler[code] = handler
         })
-    })
+    }
+
+    // EventMap
+    const events: EventMap = { eventToCode: {}, codeToEvent: {} }
+    if (data.events && data.events instanceof Array) {
+        data.events.forEach((event, index) => {
+            const code = index + 1
+            events.eventToCode[event] = code
+            events.codeToEvent[code] = event
+        })
+    }
+
+    CompressDataMap[serverKind] = {
+        protoRoot,
+        handlers,
+        events,
+        data,
+    }
+
+    return data
 }
 
 
@@ -232,8 +231,9 @@ export function onMessage(data) {
                     const data = RequestType.decode(message.Data)
                     cb(data)
                 } else {
-                    const data = new TextDecoder().decode((message.Data))
-                    cb(JSON.parse(data))
+                    const dataStr = new TextDecoder().decode((message.Data))
+                    const data = JSON.parse(dataStr)
+                    cb(data)
                 }
 
             } else {
