@@ -6,13 +6,13 @@ export namespace message {
     interface IPineMsg {
 
         /** PineMsg Route */
-        Route?: (string | null);
+        Route?: (string|null);
 
         /** PineMsg RequestID */
-        RequestID?: (number | null);
+        RequestID?: (number|null);
 
         /** PineMsg Data */
-        Data?: (Uint8Array | null);
+        Data?: (Uint8Array|null);
     }
 
     /** Represents a PineMsg. */
@@ -64,7 +64,7 @@ export namespace message {
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        public static decode(reader: ($protobuf.Reader | Uint8Array), length?: number): message.PineMsg;
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): message.PineMsg;
 
         /**
          * Decodes a PineMsg message from the specified reader or buffer, length delimited.
@@ -73,14 +73,14 @@ export namespace message {
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        public static decodeDelimited(reader: ($protobuf.Reader | Uint8Array)): message.PineMsg;
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): message.PineMsg;
 
         /**
          * Verifies a PineMsg message.
          * @param message Plain object to verify
          * @returns `null` if valid, otherwise the reason why it is not
          */
-        public static verify(message: { [k: string]: any }): (string | null);
+        public static verify(message: { [k: string]: any }): (string|null);
 
         /**
          * Creates a PineMsg message from a plain object. Also converts values to their respective internal types.
@@ -99,6 +99,102 @@ export namespace message {
 
         /**
          * Converts this PineMsg to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+    }
+
+    /** Properties of a PineErrResp. */
+    interface IPineErrResp {
+
+        /** PineErrResp Code */
+        Code?: (number|null);
+
+        /** PineErrResp Message */
+        Message?: (string|null);
+    }
+
+    /** Represents a PineErrResp. */
+    class PineErrResp implements IPineErrResp {
+
+        /**
+         * Constructs a new PineErrResp.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: message.IPineErrResp);
+
+        /** PineErrResp Code. */
+        public Code: number;
+
+        /** PineErrResp Message. */
+        public Message: string;
+
+        /**
+         * Creates a new PineErrResp instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns PineErrResp instance
+         */
+        public static create(properties?: message.IPineErrResp): message.PineErrResp;
+
+        /**
+         * Encodes the specified PineErrResp message. Does not implicitly {@link message.PineErrResp.verify|verify} messages.
+         * @param message PineErrResp message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: message.IPineErrResp, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified PineErrResp message, length delimited. Does not implicitly {@link message.PineErrResp.verify|verify} messages.
+         * @param message PineErrResp message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: message.IPineErrResp, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a PineErrResp message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns PineErrResp
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): message.PineErrResp;
+
+        /**
+         * Decodes a PineErrResp message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns PineErrResp
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): message.PineErrResp;
+
+        /**
+         * Verifies a PineErrResp message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a PineErrResp message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns PineErrResp
+         */
+        public static fromObject(object: { [k: string]: any }): message.PineErrResp;
+
+        /**
+         * Creates a plain object from a PineErrResp message. Also converts values to other types if specified.
+         * @param message PineErrResp
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: message.PineErrResp, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this PineErrResp to JSON.
          * @returns JSON object
          */
         public toJSON(): { [k: string]: any };

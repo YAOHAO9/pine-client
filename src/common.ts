@@ -59,51 +59,17 @@ export interface ProtoMap {
 // Request 请求
 export function request(route: string, data: any) {
 
-    const [serverKind, handler] = route.split('.')
-
-    if (handler !== FetchProtoHandler && !CompressDataMap[serverKind]) {
-        return Promise.reject(`Please exec 'await pine.fetchProto("${serverKind}");' first`)
-    }
-
-    const protoRoot = CompressDataMap[serverKind] ? CompressDataMap[serverKind].protoRoot : undefined
-    let RequestType
-    try {
-        RequestType = protoRoot.lookupType(route)
-    } catch (e) {
-        // console.log(`${route}'s proto message is not found.`)
-    }
-    // RequestType=null
-    let encodedData: Uint8Array;
-    if (RequestType) {
-        encodedData = RequestType.encode(data).finish()
-    } else {
-        encodedData = new TextEncoder().encode(JSON.stringify(data))
-    }
-
-    try {
-        const serverKindCode = ServerCodeMap.kindToCode[serverKind]
-        const handlerCode = CompressDataMap[serverKind].handlers.handlerToCode[handler]
-        if (serverKindCode && handlerCode) {
-            route = new TextDecoder().decode(new Uint8Array([serverKindCode, handlerCode]))
-        }
-    } catch (e) {
-        //
-    }
-
-    const msesage = PineMsg.create({
-        Route: route,
-        RequestID,
-        Data: encodedData
-    });
-
-    const buffer = PineMsg.encode(msesage).finish();
+    const { buffer } = sendMessage(route, data, RequestID);
 
     this.ws.send(buffer, { binary: true })
 
+    // 返回Promise
     return new Promise(resolve => {
+        // 设置回调函数
         requestMap[RequestID] = (args) => {
             resolve(args)
         }
+        // RequestID自增
         RequestID++
         if (RequestID >= MaxRequestID) {
             RequestID = 1
@@ -114,33 +80,62 @@ export function request(route: string, data: any) {
 // Notify 无回复通知
 export function notify(route: string, data: any) {
 
-    const serverKind = route.split('.')[0]
-
-    const protoRoot = CompressDataMap[serverKind] ? CompressDataMap[serverKind].protoRoot : undefined
-    let RequestType
-    try {
-        RequestType = protoRoot.lookupType(route)
-    } catch (e) {
-        // console.log(`${route}'s proto message is not found.`)
-    }
-    // RequestType=null
-    let encodedData: Uint8Array;
-    if (RequestType) {
-        encodedData = RequestType.encode(data).finish()
-    } else {
-        encodedData = new TextEncoder().encode(JSON.stringify(data))
-    }
-
-    const msesage = PineMsg.create({
-        Route: route,
-        RequestID: 0,
-        Data: encodedData
-    });
-
-    const buffer = PineMsg.encode(msesage).finish();
+    const { buffer } = sendMessage(route, data);
 
     this.ws.send(buffer, { binary: true })
 }
+
+function sendMessage(route: string, data: any, requestID = 0) {
+    const [serverKind, handler] = route.split('.');
+
+    // 检查是否有先获取proto文件
+    if (handler !== FetchProtoHandler && !CompressDataMap[serverKind]) {
+        throw new Error(`Please exec 'await pine.fetchProto("${serverKind}");' first`);
+    }
+
+    // 路由压缩
+    try {
+        const serverKindCode = ServerCodeMap.kindToCode[serverKind];
+        const handlerCode = CompressDataMap[serverKind].handlers.handlerToCode[handler];
+        if (serverKindCode && handlerCode) {
+            route = new TextDecoder().decode(new Uint8Array([serverKindCode, handlerCode]));
+        }
+    } catch (e) {
+        //
+    }
+
+    // 获取protobuf.Root
+    const protoRoot = CompressDataMap[serverKind] ? CompressDataMap[serverKind].protoRoot : undefined;
+    let ProtoType;
+    try {
+        // 查找是否有对应的protobuf.Type
+        ProtoType = protoRoot.lookupType(route);
+    } catch (e) {
+        // console.log(`${route}'s proto message is not found.`)
+    }
+
+    let encodedData: Uint8Array;
+    if (ProtoType) {
+        // 有对应的protobuf.Type，则使用protobuf压缩数据
+        encodedData = ProtoType.encode(data).finish();
+    } else {
+        // 没有则使用JSON传输数据
+        encodedData = new TextEncoder().encode(JSON.stringify(data));
+    }
+
+    // 包装成Pine数据包
+    const msesage = PineMsg.create({
+        Route: route,
+        RequestID: requestID,
+        Data: encodedData
+    });
+
+    // 转成byte[],发送
+    const buffer = PineMsg.encode(msesage).finish();
+    return { buffer, route };
+}
+
+
 
 // 获取proto文件
 export async function fetchProto(serverKind: string, forceUpdate: boolean) {
@@ -150,6 +145,10 @@ export async function fetchProto(serverKind: string, forceUpdate: boolean) {
     }
 
     const data: ProtoBufData = await this.request(`${serverKind}.${FetchProtoHandler}`, '')
+
+    if (!data.serverCode && !data.serverKind) {
+        throw data
+    }
     // ServerCode Map
     ServerCodeMap.codeToKind[data.serverCode] = data.serverKind
     ServerCodeMap.kindToCode[data.serverKind] = data.serverCode
@@ -195,70 +194,93 @@ export async function fetchProto(serverKind: string, forceUpdate: boolean) {
 
 
 export function onMessage(data) {
-    const message = PineMsg.decode(data as Buffer)
-    const result = message.toJSON()
+
     try {
+
+        // 消息解析
+        const message = PineMsg.decode(data as Buffer)
+        // 转成JSON
+        const result = message.toJSON()
+        // 获取byte[]类型的路由信息
         const routeBytes = new TextEncoder().encode(result.Route)
-        if (routeBytes.length === 2) {
+
+        if (routeBytes.length === 2) { // 路由经过压缩
+            // 获取对应的ServerKind
             const serverKind = ServerCodeMap.codeToKind[routeBytes[0]]
+
             if (result.RequestID) {
+                // 如果是request获取相应的Handler
                 const handler = CompressDataMap[serverKind].handlers.codeToHandler[routeBytes[1]]
+                // 恢复成原始路由
                 result.Route = `${serverKind}.${handler}`
             } else {
+                // 如果是事件获取相应的Event
                 const event = CompressDataMap[serverKind].events.codeToEvent[routeBytes[1]]
+                // 恢复成原始路由
                 result.Route = `${serverKind}.${event}`
             }
 
         }
 
+        // ServerKind
         const serverKind = result.Route.split('.')[0]
+        // protoRoot
         const protoRoot = CompressDataMap[serverKind] ? CompressDataMap[serverKind].protoRoot : undefined
 
-        if (result.RequestID) {
-            const cb = requestMap[result.RequestID]
+        let ProtoType
 
+        if (result.RequestID) {// request对应的response
+            // 获取对应的对调函数
+            const cb = requestMap[result.RequestID]
             if (cb) {
                 delete requestMap[result.RequestID]
 
-                let RequestType
                 try {
-                    RequestType = protoRoot.lookupType(result.Route + 'Resp')
+                    // 查找是否有对应的protobuf.Type
+                    ProtoType = protoRoot.lookupType(result.Route + 'Resp')
                 } catch (e) {
                     // console.log(`${result.Route}'s proto message is not found.`, e)
                 }
 
-                if (RequestType) {
-                    const data = RequestType.decode(message.Data)
-                    cb(data)
+                let data
+                if (ProtoType) {
+                    // 如果有则使用protobuf.Type解析数据
+                    data = ProtoType.decode(message.Data)
                 } else {
-                    const dataStr = new TextDecoder().decode((message.Data))
-                    const data = JSON.parse(dataStr)
-                    cb(data)
+                    // 否则尝试使用JSON格式解析数据
+                    data = new TextDecoder().decode((message.Data))
+                    data = JSON.parse(data)
                 }
-
+                // 执行回掉函数
+                cb(data)
             } else {
-                console.error('No callback response;', result)
+                // 如果找不到回调函数则报一个错
+                console.error('No response callback;', result)
             }
-        } else {
+        } else { // 服务端主动下发的Event
 
-            let RequestType
             try {
-                RequestType = protoRoot.lookupType(result.Route)
+                // 查找是否有对应的protobuf.Type
+                ProtoType = protoRoot.lookupType(result.Route)
             } catch (e) {
                 // console.log(`${result.Route}'s proto message is not found.`)
             }
 
             let data
-            if (RequestType) {
-                data = RequestType.decode(message.Data)
+            if (ProtoType) {
+                // 如果有则使用protobuf.Type解析数据
+                data = ProtoType.decode(message.Data)
             } else {
+                // 否则尝试使用JSON格式解析数据
                 data = new TextDecoder().decode((message.Data))
                 data = JSON.parse(data)
             }
+            // 触发事件
             this.emit(result.Route, data)
         }
+
     } catch (e) {
-        console.error(e, '\nData:', JSON.stringify(result))
+        console.error(e, '\nData:', JSON.stringify(data))
     }
 
 }
