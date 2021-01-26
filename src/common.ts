@@ -5,6 +5,7 @@ import { TextDecoder, TextEncoder } from './en_decoder';
 
 const CompressDataMap: ProtoMap = {}
 const PineMsg = message.PineMsg
+const PineErrMsg = message.PineErrResp
 const Root = protobuf.Root;
 
 (protobuf as any).loadFromString = (name, protoStr) => {
@@ -40,6 +41,8 @@ export interface EventMap {
 }
 
 interface ProtoBufData {
+    Code?: number;
+    Message?: string;
     serverCode: number,
     serverKind: string,
     proto: string,
@@ -85,58 +88,6 @@ export function notify(route: string, data: any) {
     this.ws.send(buffer, { binary: true })
 }
 
-function sendMessage(route: string, data: any, requestID = 0) {
-    const [serverKind, handler] = route.split('.');
-
-    // 检查是否有先获取proto文件
-    if (handler !== FetchProtoHandler && !CompressDataMap[serverKind]) {
-        throw new Error(`Please exec 'await pine.fetchProto("${serverKind}");' first`);
-    }
-
-    // 路由压缩
-    try {
-        const serverKindCode = ServerCodeMap.kindToCode[serverKind];
-        const handlerCode = CompressDataMap[serverKind].handlers.handlerToCode[handler];
-        if (serverKindCode && handlerCode) {
-            route = new TextDecoder().decode(new Uint8Array([serverKindCode, handlerCode]));
-        }
-    } catch (e) {
-        //
-    }
-
-    // 获取protobuf.Root
-    const protoRoot = CompressDataMap[serverKind] ? CompressDataMap[serverKind].protoRoot : undefined;
-    let ProtoType;
-    try {
-        // 查找是否有对应的protobuf.Type
-        ProtoType = protoRoot.lookupType(route);
-    } catch (e) {
-        // console.log(`${route}'s proto message is not found.`)
-    }
-
-    let encodedData: Uint8Array;
-    if (ProtoType) {
-        // 有对应的protobuf.Type，则使用protobuf压缩数据
-        encodedData = ProtoType.encode(data).finish();
-    } else {
-        // 没有则使用JSON传输数据
-        encodedData = new TextEncoder().encode(JSON.stringify(data));
-    }
-
-    // 包装成Pine数据包
-    const msesage = PineMsg.create({
-        Route: route,
-        RequestID: requestID,
-        Data: encodedData
-    });
-
-    // 转成byte[],发送
-    const buffer = PineMsg.encode(msesage).finish();
-    return { buffer, route };
-}
-
-
-
 // 获取proto文件
 export async function fetchProto(serverKind: string, forceUpdate: boolean) {
 
@@ -146,7 +97,7 @@ export async function fetchProto(serverKind: string, forceUpdate: boolean) {
 
     const data: ProtoBufData = await this.request(`${serverKind}.${FetchProtoHandler}`, '')
 
-    if (!data.serverCode && !data.serverKind) {
+    if (data.Code) {
         throw data
     }
     // ServerCode Map
@@ -241,18 +192,11 @@ export function onMessage(data) {
                 } catch (e) {
                     // console.log(`${result.Route}'s proto message is not found.`, e)
                 }
-
-                let data
-                if (ProtoType) {
-                    // 如果有则使用protobuf.Type解析数据
-                    data = ProtoType.decode(message.Data)
-                } else {
-                    // 否则尝试使用JSON格式解析数据
-                    data = new TextDecoder().decode((message.Data))
-                    data = JSON.parse(data)
-                }
+                // 解析数据
+                const data = parseData(ProtoType, message);
                 // 执行回掉函数
                 cb(data)
+
             } else {
                 // 如果找不到回调函数则报一个错
                 console.error('No response callback;', result)
@@ -265,22 +209,82 @@ export function onMessage(data) {
             } catch (e) {
                 // console.log(`${result.Route}'s proto message is not found.`)
             }
-
-            let data
-            if (ProtoType) {
-                // 如果有则使用protobuf.Type解析数据
-                data = ProtoType.decode(message.Data)
-            } else {
-                // 否则尝试使用JSON格式解析数据
-                data = new TextDecoder().decode((message.Data))
-                data = JSON.parse(data)
-            }
+            // 解析数据
+            const data = parseData(ProtoType, message);
             // 触发事件
             this.emit(result.Route, data)
+
         }
 
     } catch (e) {
         console.error(e, '\nData:', JSON.stringify(data))
     }
 
+}
+
+function sendMessage(route: string, data: any, requestID = 0) {
+    const [serverKind, handler] = route.split('.');
+
+    // 检查是否有先获取proto文件
+    if (handler !== FetchProtoHandler && !CompressDataMap[serverKind]) {
+        throw new Error(`Please exec 'await pine.fetchProto("${serverKind}");' first`);
+    }
+
+    // 路由压缩
+    try {
+        const serverKindCode = ServerCodeMap.kindToCode[serverKind];
+        const handlerCode = CompressDataMap[serverKind].handlers.handlerToCode[handler];
+        if (serverKindCode && handlerCode) {
+            route = new TextDecoder().decode(new Uint8Array([serverKindCode, handlerCode]));
+        }
+    } catch (e) {
+        //
+    }
+
+    // 获取protobuf.Root
+    const protoRoot = CompressDataMap[serverKind] ? CompressDataMap[serverKind].protoRoot : undefined;
+    let ProtoType;
+    try {
+        // 查找是否有对应的protobuf.Type
+        ProtoType = protoRoot.lookupType(route);
+    } catch (e) {
+        // console.log(`${route}'s proto message is not found.`)
+    }
+
+    let encodedData: Uint8Array;
+    if (ProtoType) {
+        // 有对应的protobuf.Type，则使用protobuf压缩数据
+        encodedData = ProtoType.encode(data).finish();
+    } else {
+        // 没有则使用JSON传输数据
+        encodedData = new TextEncoder().encode(JSON.stringify(data));
+    }
+
+    // 包装成Pine数据包
+    const msesage = PineMsg.create({
+        Route: route,
+        RequestID: requestID,
+        Data: encodedData
+    });
+
+    // 转成byte[],发送
+    const buffer = PineMsg.encode(msesage).finish();
+    return { buffer, route };
+}
+
+function parseData(ProtoType: any, message: message.PineMsg) {
+    let data;
+    try {
+        if (ProtoType) {
+            // 如果有则使用protobuf.Type解析数据
+            data = ProtoType.decode(message.Data);
+        } else {
+            // 否则尝试使用JSON格式解析数据
+            data = new TextDecoder().decode((message.Data));
+            data = JSON.parse(data);
+        }
+    } catch (e) {
+        data = PineErrMsg.decode(message.Data)
+    }
+    return data;
 }
