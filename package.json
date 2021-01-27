@@ -1,6 +1,6 @@
 {
     "name": "pine-client",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "description": "pine client",
     "main": "lib/node.js",
     "browser": "lib/browser.js",
