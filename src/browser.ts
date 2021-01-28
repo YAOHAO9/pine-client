@@ -1,6 +1,6 @@
 
 import * as Event from 'events'
-import { onMessage, request, notify, fetchProto } from './common';
+import { onMessage, request, notify, fetchProto, Middleware } from './common';
 
 window.onunhandledrejection = (error) => {
     console.error(error)
@@ -49,8 +49,8 @@ export default class Pine extends Event.EventEmitter {
     }
 
     // Request 请求
-    public request(route: string, data: any): Promise<any> {
-        return request.call(this, route, data)
+    public request(route: string, data: any, ...middlewares: Middleware[]): Promise<any> {
+        return request.call(this, route, data, ...middlewares)
     }
 
     // Notify 无回复通知

@@ -59,18 +59,33 @@ export interface ProtoMap {
     }
 }
 
-// Request 请求
-export function request(route: string, data: any) {
+type Resp = {
+    Code: number;
+    Message: string;
+    [key: string]: any;
+    [key: number]: any;
+}
 
-    const { buffer } = sendMessage(route, data, RequestID);
+export type Middleware = (data: Resp) => boolean
+
+// Request 请求
+export function request(route: string, repData: any, ...middlewares: Middleware[]) {
+
+    const { buffer } = sendMessage(route, repData, RequestID);
 
     this.ws.send(buffer, { binary: true })
 
     // 返回Promise
     return new Promise(resolve => {
         // 设置回调函数
-        requestMap[RequestID] = (args) => {
-            resolve(args)
+        requestMap[RequestID] = async (respData) => {
+            for (const middleware of middlewares) {
+                const isContinue = await middleware(respData)
+                if (!isContinue) {
+                    return
+                }
+            }
+            resolve(respData)
         }
         // RequestID自增
         RequestID++
@@ -98,7 +113,7 @@ export async function fetchProto(serverKind: string, forceUpdate: boolean) {
     const data: ProtoBufData = await this.request(`${serverKind}.${FetchProtoHandler}`, '')
 
     if (data.Code) {
-        throw data
+        throw new Error(JSON.stringify(data))
     }
     // ServerCode Map
     ServerCodeMap.codeToKind[data.serverCode] = data.serverKind
@@ -192,8 +207,14 @@ export function onMessage(data) {
                 } catch (e) {
                     // console.log(`${result.Route}'s proto message is not found.`, e)
                 }
+
+                let data
                 // 解析数据
-                const data = parseData(ProtoType, message);
+                try {
+                    data = parseData(ProtoType, message);
+                } catch (e) {
+                    data = PineErrMsg.decode(message.Data)
+                }
                 // 执行回掉函数
                 cb(data)
 
@@ -274,17 +295,13 @@ function sendMessage(route: string, data: any, requestID = 0) {
 
 function parseData(ProtoType: any, message: message.PineMsg) {
     let data;
-    try {
-        if (ProtoType) {
-            // 如果有则使用protobuf.Type解析数据
-            data = ProtoType.decode(message.Data);
-        } else {
-            // 否则尝试使用JSON格式解析数据
-            data = new TextDecoder().decode((message.Data));
-            data = JSON.parse(data);
-        }
-    } catch (e) {
-        data = PineErrMsg.decode(message.Data)
+    if (ProtoType) {
+        // 如果有则使用protobuf.Type解析数据
+        data = ProtoType.decode(message.Data);
+    } else {
+        // 否则尝试使用JSON格式解析数据
+        data = new TextDecoder().decode((message.Data));
+        data = JSON.parse(data);
     }
     return data;
 }

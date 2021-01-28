@@ -1,17 +1,24 @@
 
 import * as WebSocket from 'ws'
 import * as Event from 'events'
-import { onMessage, request, notify, fetchProto } from './common';
+import { onMessage, request, notify, fetchProto, Middleware } from './common';
 
 
 process.on('uncaughtException', (error) => {
-    console.error(error)
+    console.error('uncaughtException:', error)
 })
 
 process.on('unhandledRejection', (error) => {
-    console.error(error)
+    console.error('unhandledRejection:', error)
 })
 
+process.on('rejectionHandled', (error) => {
+    console.error('rejectionHandled:', error)
+})
+
+process.on('uncaughtExceptionMonitor', (error) => {
+    console.error('uncaughtExceptionMonitor:', error)
+})
 
 export default class Pine extends Event.EventEmitter {
 
@@ -54,8 +61,8 @@ export default class Pine extends Event.EventEmitter {
     }
 
     // Request 请求
-    public request(route: string, data: any): Promise<any> {
-        return request.call(this, route, data)
+    public request(route: string, data: any, ...middlewares: Middleware[]): Promise<any> {
+        return request.call(this, route, data, ...middlewares)
     }
 
     // Notify 无回复通知
