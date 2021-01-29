@@ -1,8 +1,6 @@
 
 import * as WebSocket from 'ws'
-import * as Event from 'events'
-import { onMessage, request, notify, fetchProto, Middleware } from './common';
-
+import { CommonPine } from './common';
 
 process.on('uncaughtException', (error) => {
     console.error('uncaughtException:', error)
@@ -20,10 +18,9 @@ process.on('uncaughtExceptionMonitor', (error) => {
     console.error('uncaughtExceptionMonitor:', error)
 })
 
-export default class Pine extends Event.EventEmitter {
+export default class Pine extends CommonPine {
 
-    private ws: WebSocket
-
+    protected ws: WebSocket
 
     public static init() {
         const pine = new Pine()
@@ -41,7 +38,7 @@ export default class Pine extends Event.EventEmitter {
             }
 
             this.ws.addListener('message', (data: WebSocket.Data) => {
-                onMessage.call(this, data)
+                this.onMessage(data)
             })
 
             this.ws.onclose = (event: WebSocket.CloseEvent) => {
@@ -57,21 +54,6 @@ export default class Pine extends Event.EventEmitter {
             }
         })
 
-    }
-
-    // Request 请求
-    public request(route: string, data: any, ...middlewares: Middleware[]): Promise<any> {
-        return request.call(this, route, data, ...middlewares)
-    }
-
-    // Notify 无回复通知
-    public notify(route: string, data: any) {
-        notify.call(this, route, data)
-    }
-
-    // 获取proto
-    public fetchProto(serverKind: string, forceUpdate: boolean = false) {
-        return fetchProto.call(this, serverKind, forceUpdate)
     }
 }
 

@@ -16,7 +16,7 @@ import { Middleware } from 'pine-client/lib/common'
     const requestDataJSON = { Name: 'JSON request', hahahahah: 18 }
 
 
-    await pine.fetchProto('connector')
+    await pine.fetchCompressMetadata('connector')
     const result1 = await pine.request('connector.handler', requestDataJSON)
     console.log(result1)
 
