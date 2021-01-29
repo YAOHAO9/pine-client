@@ -1,11 +1,11 @@
 
-import { CommonPine } from './common';
+import { BasePine } from './common';
 
 window.onunhandledrejection = (error) => {
     console.error(error)
 }
 
-export default class Pine extends CommonPine {
+export default class Pine extends BasePine {
 
     protected ws: WebSocket
 

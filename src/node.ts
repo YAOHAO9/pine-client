@@ -1,6 +1,6 @@
 
 import * as WebSocket from 'ws'
-import { CommonPine } from './common';
+import { BasePine } from './common';
 
 process.on('uncaughtException', (error) => {
     console.error('uncaughtException:', error)
@@ -18,7 +18,7 @@ process.on('uncaughtExceptionMonitor', (error) => {
     console.error('uncaughtExceptionMonitor:', error)
 })
 
-export default class Pine extends CommonPine {
+export default class Pine extends BasePine {
 
     protected ws: WebSocket
 

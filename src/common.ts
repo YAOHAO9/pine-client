@@ -69,7 +69,7 @@ type Resp = {
 
 export type Middleware = (data: Resp) => boolean
 
-export abstract class CommonPine extends Event.EventEmitter {
+export abstract class BasePine extends Event.EventEmitter {
     protected abstract ws: any;
     // Request 请求
     public request(route: string, repData: any, ...middlewares: Middleware[]) {
@@ -318,6 +318,25 @@ export abstract class CommonPine extends Event.EventEmitter {
 
     // 从string中加载proto（eg. CDN）
     public async loadProtoFromString(serverKind: string, protoStr: string) {
+
+        if (!protoStr) {
+            throw new Error('Proto string can not be empty')
+        }
+
+        const originPackage = /package +\w+;/
+        const metchResult = protoStr.match(/package +\w+;/)
+        if (!metchResult) {
+            throw new Error('Proto string must contain package')
+        }
+
+        const correctPackage = `package ${serverKind};`
+        const reg = new RegExp(`package +${serverKind};`)
+        if (!protoStr.match(reg)) {
+            const err = new Error(`Proto package is not correct, Plaease change '${metchResult[0]}' to '${correctPackage}'`)
+            console.error(err)
+            protoStr = protoStr.replace(originPackage, correctPackage)
+        }
+
         const protoRoot = await (protobuf as any).loadFromString(serverKind, protoStr)
 
         if (CompressDataMap[serverKind]) {
