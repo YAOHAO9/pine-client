@@ -8,7 +8,7 @@ const PineMsg = message.PineMsg
 const PineErrMsg = message.PineErrResp
 const Root = protobuf.Root;
 
-(protobuf as any).loadFromString = (name, protoStr) => {
+(protobuf as any).loadFromString = (name: string, protoStr: string) => {
     const fetchFunc = Root.prototype.fetch;
     Root.prototype.fetch = (_, cb) => cb(null, protoStr);
     const root = new Root().load(name);
@@ -103,6 +103,57 @@ export function notify(route: string, data: any) {
     this.ws.send(buffer, { binary: true })
 }
 
+// 发送消息
+function sendMessage(route: string, data: any, requestID = 0) {
+    const [serverKind, handler] = route.split('.');
+
+    // 检查是否有先获取proto文件
+    if (handler !== FetchProtoHandler && !CompressDataMap[serverKind]) {
+        throw new Error(`Please exec 'await pine.fetchProto("${serverKind}");' first`);
+    }
+
+    // 路由压缩
+    try {
+        const serverKindCode = ServerCodeMap.kindToCode[serverKind];
+        const handlerCode = CompressDataMap[serverKind].handlers.handlerToCode[handler];
+        if (serverKindCode && handlerCode) {
+            route = new TextDecoder().decode(new Uint8Array([serverKindCode, handlerCode]));
+        }
+    } catch (e) {
+        //
+    }
+
+    // 获取protobuf.Root
+    const protoRoot = CompressDataMap[serverKind] ? CompressDataMap[serverKind].protoRoot : undefined;
+    let ProtoType;
+    try {
+        // 查找是否有对应的protobuf.Type
+        ProtoType = protoRoot.lookupType(route);
+    } catch (e) {
+        // console.log(`${route}'s proto message is not found.`)
+    }
+
+    let encodedData: Uint8Array;
+    if (ProtoType) {
+        // 有对应的protobuf.Type，则使用protobuf压缩数据
+        encodedData = ProtoType.encode(data).finish();
+    } else {
+        // 没有则使用JSON传输数据
+        encodedData = new TextEncoder().encode(JSON.stringify(data));
+    }
+
+    // 包装成Pine数据包
+    const msesage = PineMsg.create({
+        Route: route,
+        RequestID: requestID,
+        Data: encodedData
+    });
+
+    // 转成byte[],发送
+    const buffer = PineMsg.encode(msesage).finish();
+    return { buffer, route };
+}
+
 // 获取proto文件
 export async function fetchProto(serverKind: string, forceUpdate: boolean) {
 
@@ -148,17 +199,26 @@ export async function fetchProto(serverKind: string, forceUpdate: boolean) {
         })
     }
 
-    CompressDataMap[serverKind] = {
-        protoRoot,
-        handlers,
-        events,
-        data,
+    if (CompressDataMap[serverKind] && CompressDataMap[serverKind].protoRoot && !protoRoot) {
+        // 存在旧的protoRoot并且没有新的proto数据则不更新protoRoot
+        CompressDataMap[serverKind].handlers = handlers
+        CompressDataMap[serverKind].events = events
+        CompressDataMap[serverKind].data = data
+    } else {
+        CompressDataMap[serverKind] = {
+            protoRoot,
+            handlers,
+            events,
+            data,
+        }
     }
+
+
 
     return data
 }
 
-
+// 处理消息
 export function onMessage(data) {
 
     try {
@@ -243,56 +303,7 @@ export function onMessage(data) {
 
 }
 
-function sendMessage(route: string, data: any, requestID = 0) {
-    const [serverKind, handler] = route.split('.');
-
-    // 检查是否有先获取proto文件
-    if (handler !== FetchProtoHandler && !CompressDataMap[serverKind]) {
-        throw new Error(`Please exec 'await pine.fetchProto("${serverKind}");' first`);
-    }
-
-    // 路由压缩
-    try {
-        const serverKindCode = ServerCodeMap.kindToCode[serverKind];
-        const handlerCode = CompressDataMap[serverKind].handlers.handlerToCode[handler];
-        if (serverKindCode && handlerCode) {
-            route = new TextDecoder().decode(new Uint8Array([serverKindCode, handlerCode]));
-        }
-    } catch (e) {
-        //
-    }
-
-    // 获取protobuf.Root
-    const protoRoot = CompressDataMap[serverKind] ? CompressDataMap[serverKind].protoRoot : undefined;
-    let ProtoType;
-    try {
-        // 查找是否有对应的protobuf.Type
-        ProtoType = protoRoot.lookupType(route);
-    } catch (e) {
-        // console.log(`${route}'s proto message is not found.`)
-    }
-
-    let encodedData: Uint8Array;
-    if (ProtoType) {
-        // 有对应的protobuf.Type，则使用protobuf压缩数据
-        encodedData = ProtoType.encode(data).finish();
-    } else {
-        // 没有则使用JSON传输数据
-        encodedData = new TextEncoder().encode(JSON.stringify(data));
-    }
-
-    // 包装成Pine数据包
-    const msesage = PineMsg.create({
-        Route: route,
-        RequestID: requestID,
-        Data: encodedData
-    });
-
-    // 转成byte[],发送
-    const buffer = PineMsg.encode(msesage).finish();
-    return { buffer, route };
-}
-
+// 解析消息
 function parseData(ProtoType: any, message: message.PineMsg) {
     let data;
     if (ProtoType) {
@@ -304,4 +315,19 @@ function parseData(ProtoType: any, message: message.PineMsg) {
         data = JSON.parse(data);
     }
     return data;
+}
+
+export async function loadProtoFromString(serverKind: string, protoStr: string) {
+    const protoRoot = await (protobuf as any).loadFromString(serverKind, protoStr)
+
+    if (CompressDataMap[serverKind]) {
+        CompressDataMap[serverKind].protoRoot = protoRoot
+    } else {
+        CompressDataMap[serverKind] = {
+            protoRoot,
+            handlers: null,
+            events: null,
+            data: null,
+        }
+    }
 }

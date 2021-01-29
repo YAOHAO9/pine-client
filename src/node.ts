@@ -36,7 +36,6 @@ export default class Pine extends Event.EventEmitter {
         return new Promise((resolve, reject) => {
             this.ws = new WebSocket(wsUrl)
             this.ws.onopen = async (_: WebSocket.OpenEvent) => {
-                await fetchProto.call(this, 'connector')
                 resolve(this.ws)
                 reject = null
             }

@@ -24,7 +24,6 @@ export default class Pine extends Event.EventEmitter {
             this.ws.binaryType = 'arraybuffer'
 
             this.ws.onopen = async (_) => {
-                await fetchProto.call(this, 'connector')
                 resolve(this.ws)
                 reject = null
             }
