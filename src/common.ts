@@ -71,17 +71,29 @@ export type Middleware = (data: Resp) => boolean
 
 export abstract class BasePine extends Event.EventEmitter {
     protected abstract ws: any;
+    public static ReqTimeOut = 60 * 1000
     // Request 请求
-    public request(route: string, repData: any, ...middlewares: Middleware[]) {
+    public request(route: string, reqData: any, ...middlewares: Middleware[]) {
 
-        const { buffer } = this.sendMessage(route, repData, RequestID);
+        const { buffer } = this.sendMessage(route, reqData, RequestID);
 
         this.ws.send(buffer, { binary: true })
 
         // 返回Promise
         return new Promise<any>(resolve => {
+
+            const requestId = RequestID
+
+            const timeOutHandler = setTimeout(() => {
+                if (requestMap[requestId]) {
+                    delete requestMap[requestId]
+                }
+                console.error(`${route}: Response time out, data: ${JSON.stringify(reqData)}`)
+            }, BasePine.ReqTimeOut);
+
             // 设置回调函数
-            requestMap[RequestID] = async (respData) => {
+            requestMap[requestId] = async (respData) => {
+                clearTimeout(timeOutHandler)
                 for (const middleware of middlewares) {
                     const isContinue = await middleware(respData)
                     if (!isContinue) {
@@ -90,6 +102,8 @@ export abstract class BasePine extends Event.EventEmitter {
                 }
                 resolve(respData)
             }
+
+
             // RequestID自增
             RequestID++
             if (RequestID >= MaxRequestID) {

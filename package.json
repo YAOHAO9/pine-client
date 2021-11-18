@@ -1,29 +1,59 @@
 {
+  "_args": [
+    [
+      "pine-client@1.0.10",
+      "D:\\Projects\\FishLine"
+    ]
+  ],
+  "_from": "pine-client@1.0.10",
+  "_id": "pine-client@1.0.10",
+  "_inBundle": false,
+  "_integrity": "sha512-19CNh1qHOBrGN+x72TFOe/8MpP7MwVd8VWZrWgwq733FBECK9snXeP51WxRLvvMdwokZvlpA/ljRYN7k7I23kA==",
+  "_location": "/pine-client",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "version",
+    "registry": true,
+    "raw": "pine-client@1.0.10",
     "name": "pine-client",
-    "version": "1.0.9",
-    "description": "pine client",
-    "main": "lib/node.js",
-    "browser": "lib/browser.js",
-    "scripts": {
-        "start": "ts-node src/index.ts",
-        "test": "echo \"Warn: no test specified\""
-    },
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/YAOHAO9/pine-client.git"
-    },
-    "keywords": [
-        "pine-client"
-    ],
-    "author": "yaohao",
-    "license": "ISC",
-    "bugs": {
-        "url": "https://github.com/YAOHAO9/pine-client/issues"
-    },
-    "homepage": "https://github.com/YAOHAO9/pine-client#readme",
-    "dependencies": {
-        "@types/ws": "^7.4.0",
-        "protobufjs": "^6.10.2",
-        "ws": "^7.4.0"
-    }
+    "escapedName": "pine-client",
+    "rawSpec": "1.0.10",
+    "saveSpec": null,
+    "fetchSpec": "1.0.10"
+  },
+  "_requiredBy": [
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/pine-client/-/pine-client-1.0.10.tgz",
+  "_spec": "1.0.10",
+  "_where": "D:\\Projects\\FishLine",
+  "author": {
+    "name": "yaohao"
+  },
+  "browser": "lib/browser.js",
+  "bugs": {
+    "url": "https://github.com/YAOHAO9/pine-client/issues"
+  },
+  "dependencies": {
+    "@types/ws": "^7.4.0",
+    "protobufjs": "^6.10.2",
+    "ws": "^7.4.0"
+  },
+  "description": "pine client",
+  "homepage": "https://github.com/YAOHAO9/pine-client#readme",
+  "keywords": [
+    "pine-client"
+  ],
+  "license": "ISC",
+  "main": "lib/node.js",
+  "name": "pine-client",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YAOHAO9/pine-client.git"
+  },
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "test": "echo \"Warn: no test specified\""
+  },
+  "version": "1.0.10"
 }
