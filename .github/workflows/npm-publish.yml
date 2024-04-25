@@ -34,3 +34,17 @@ jobs:
       - run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{secrets.npm_token}}
+
+  # backup
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Sync to Gitee
+        run: |
+          git config --global user.name "過愘"
+          git config --global user.email "986403268@qq.com"
+          git remote add gitee https://oauth2:${{ secrets.GITEE_ACCESS_TOKEN }}@gitee.com/yaohao9/pine-client.git
+          git fetch --unshallow
+          git push gitee ${{ github.ref }} --force
