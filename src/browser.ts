@@ -1,10 +1,6 @@
 
 import { BasePine } from './common';
 
-(window || global).onunhandledrejection = (error) => {
-  console.error(error)
-}
-
 export default class Pine extends BasePine {
 
   protected ws: WebSocket
